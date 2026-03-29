@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "A member of the Bondhu Circle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "units": { "type": "number" },
+        "joinMonth": { "type": "integer" },
+        "phone": { "type": "string" }
+      },
+      "required": ["id", "name", "units", "joinMonth"]
+    },
+    "Investment": {
+      "title": "Investment",
+      "description": "An investment pool",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "month": { "type": "integer" },
+        "rate": { "type": "number" },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["saving", "profit"] },
+              "memberId": { "type": "integer" },
+              "amount": { "type": "number" },
+              "fromInvId": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["id", "name", "month", "sources"]
+    },
+    "ProfitLog": {
+      "title": "ProfitLog",
+      "description": "A log of profit received from an investment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invId": { "type": "string" },
+        "month": { "type": "integer" },
+        "amount": { "type": "number" }
+      },
+      "required": ["id", "invId", "month", "amount"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "A group expense",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "month": { "type": "integer" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "category", "month", "amount"]
+    },
+    "SavingsLog": {
+      "title": "SavingsLog",
+      "description": "A log of a member's savings for a month",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberId": { "type": "integer" },
+        "month": { "type": "integer" },
+        "amount": { "type": "number" },
+        "notifyMethod": { "type": "string", "enum": ["whatsapp", "sms", "email"] }
+      },
+      "required": ["id", "memberId", "month", "amount"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "A withdrawal by a member",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberId": { "type": "integer" },
+        "month": { "type": "integer" },
+        "amount": { "type": "number" },
+        "note": { "type": "string" }
+      },
+      "required": ["id", "memberId", "month", "amount"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "unitValue": { "type": "number" },
+        "currentMonth": { "type": "integer" },
+        "nextMemberId": { "type": "integer" },
+        "nextInvId": { "type": "integer" },
+        "nextExpId": { "type": "integer" }
+      }
+    }
+  },
+  "firestore": {
+    "members": {
+      "schema": "Member",
+      "description": "Collection of members"
+    },
+    "investments": {
+      "schema": "Investment",
+      "description": "Collection of investments"
+    },
+    "profitLogs": {
+      "schema": "ProfitLog",
+      "description": "Collection of profit logs"
+    },
+    "expenses": {
+      "schema": "Expense",
+      "description": "Collection of expenses"
+    },
+    "savingsLogs": {
+      "schema": "SavingsLog",
+      "description": "Collection of savings logs"
+    },
+    "withdrawals": {
+      "schema": "Withdrawal",
+      "description": "Collection of withdrawals"
+    },
+    "config": {
+      "schema": "Config",
+      "description": "Global configuration"
+    }
+  }
+}
