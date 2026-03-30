@@ -181,7 +181,11 @@ export const TxLog: React.FC<TxLogProps> = ({ db, setDb, toast }) => {
         </div>
         {db.txLog.length === 0 && (
           <div className="text-[var(--text3)] text-[13px]">
-            No transactions logged.
+            <div className="flex flex-col items-center py-12 text-center">
+            <div className="text-[40px] mb-3">📋</div>
+            <div className="font-serif text-[16px] text-[var(--text)] mb-1">No transactions yet</div>
+            <div className="text-[13px] text-[var(--text3)]">Transaction history will appear here automatically.</div>
+          </div>
           </div>
         )}
         <div className="tbl-wrap">
