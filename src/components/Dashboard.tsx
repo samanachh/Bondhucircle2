@@ -71,9 +71,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
   const [showBacklog, setShowBacklog] = useState(false);
 
   const fetchAiInsight = async () => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      setAiInsight('Focus on consistent savings to build long-term wealth together! 💪');
+      setLoadingAi(false);
+      return;
+    }
     setLoadingAi(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `As a financial advisor for a community investment group called "Bondhu Circle", analyze these metrics and give a 2-sentence encouraging insight:
       Total Invested: ${totalInvestedVal} tk
       Total Profit: ${totalProfit} tk
