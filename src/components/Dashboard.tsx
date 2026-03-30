@@ -98,9 +98,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
     : active;
 
   const fetchAiInsight = async () => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      setAiInsight('Consistent savings and smart investments build long-term wealth. Keep growing together! 💪');
+      setLoadingAi(false);
+      return;
+    }
     setLoadingAi(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `As a financial advisor for a community investment group called "Bondhu Circle", analyze these metrics and give a 2-sentence encouraging insight:
       Total Invested: ${totalInvestedVal} tk
       Total Profit: ${totalProfit} tk
@@ -112,7 +118,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
       Number of Active Investments: ${investments.length}`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: prompt,
       });
       setAiInsight(response.text || 'Keep growing together!');
