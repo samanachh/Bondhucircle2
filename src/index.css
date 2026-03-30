@@ -26,8 +26,15 @@
     --red: #f87171;
     --purple: #a78bfa;
     --teal: #2dd4bf;
+    --indigo: #818cf8;
+    --emerald: #34d399;
+    --rose: #fb7185;
     --radius: 14px;
     --radius-sm: 8px;
+    /* Aliases for compatibility */
+    --card-bg: #161b27;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-hover: rgba(255, 255, 255, 0.13);
   }
 
   body {
