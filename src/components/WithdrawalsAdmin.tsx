@@ -228,7 +228,11 @@ export const WithdrawalsAdmin: React.FC<WithdrawalsAdminProps> = ({
         </div>
         {withdrawals.length === 0 ? (
           <div className="text-[var(--text3)] text-[13px] py-8 text-center bg-[var(--bg2)] rounded-xl border border-dashed border-[var(--border)]">
-            No withdrawals logged yet.
+            <div className="flex flex-col items-center py-12 text-center">
+            <div className="text-[40px] mb-3">💸</div>
+            <div className="font-serif text-[16px] text-[var(--text)] mb-1">No withdrawals yet</div>
+            <div className="text-[13px] text-[var(--text3)]">Member withdrawals will appear here once logged.</div>
+          </div>
           </div>
         ) : (
           <div className="tbl-wrap">
