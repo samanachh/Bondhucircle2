@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppData, DepositRequest, AuditLog, SavingsLog } from '../types';
-import { Upload, Check, X, Clock, FileText, Image as ImageIcon, AlertCircle, Calendar } from 'lucide-react';
+import { Upload, Check, X, Clock, FileText, Image as ImageIcon, AlertCircle, Calendar, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MONTHS, START_YEAR } from '../constants';
 import { labelToMonthNum, monthNumToLabel } from '../utils';
@@ -19,6 +19,7 @@ export const DepositTracking: React.FC<DepositTrackingProps> = ({ db, isAdmin, m
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [selectedMonthIdx, setSelectedMonthIdx] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -322,13 +323,31 @@ export const DepositTracking: React.FC<DepositTrackingProps> = ({ db, isAdmin, m
                       }`}>
                         {req.status}
                       </span>
-                      {req.status === 'pending' && (
-                        <button 
-                          onClick={() => handleDelete(req.id)}
+
+                      {/* Delete button for ALL statuses with confirmation */}
+                      {confirmDeleteId === req.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-[var(--text3)]">Delete?</span>
+                          <button
+                            onClick={() => { handleDelete(req.id); setConfirmDeleteId(null); }}
+                            className="px-2.5 py-1 bg-red-500 text-white text-[11px] font-bold rounded-lg hover:bg-red-600 transition-colors"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="px-2.5 py-1 bg-[var(--bg3)] text-[var(--text2)] text-[11px] font-bold rounded-lg border border-[var(--border)] hover:bg-[var(--bg4)] transition-colors"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(req.id)}
                           className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                           title="Delete Request"
                         >
-                          <X size={16} />
+                          <Trash2 size={15} />
                         </button>
                       )}
                     </div>
