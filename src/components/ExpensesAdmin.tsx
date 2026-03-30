@@ -187,7 +187,11 @@ export const ExpensesAdmin: React.FC<ExpensesAdminProps> = ({
             By Category
           </div>
           {Object.keys(catTotals).length === 0 && (
-            <div className="text-[var(--text3)] text-[13px]">No expenses yet.</div>
+            <div className="text-[var(--text3)] text-[13px]"><div className="flex flex-col items-center py-12 text-center">
+            <div className="text-[40px] mb-3">🧾</div>
+            <div className="font-serif text-[16px] text-[var(--text)] mb-1">No expenses yet</div>
+            <div className="text-[13px] text-[var(--text3)]">Add your first expense using the form above.</div>
+          </div></div>
           )}
           {Object.entries(catTotals).map(([c, amt]) => (
             <div
@@ -264,7 +268,11 @@ export const ExpensesAdmin: React.FC<ExpensesAdminProps> = ({
           Expense Log
         </div>
         {expenses.length === 0 && (
-          <div className="text-[var(--text3)] text-[13px]">No expenses logged.</div>
+          <div className="text-[var(--text3)] text-[13px]"><div className="flex flex-col items-center py-12 text-center">
+            <div className="text-[40px] mb-3">🧾</div>
+            <div className="font-serif text-[16px] text-[var(--text)] mb-1">No expenses logged</div>
+            <div className="text-[13px] text-[var(--text3)]">Expenses will appear here once added.</div>
+          </div></div>
         )}
         <div className="tbl-wrap">
           {expenses.length > 0 && (
