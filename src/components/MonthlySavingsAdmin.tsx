@@ -254,7 +254,11 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
         </div>
         {sortedMonths.length === 0 && (
           <div className="text-[var(--text3)] text-[13px] py-8 text-center bg-[var(--bg2)] rounded-xl border border-dashed border-[var(--border)]">
-            No savings logged yet.
+            <div className="flex flex-col items-center py-12 text-center">
+            <div className="text-[40px] mb-3">💰</div>
+            <div className="font-serif text-[16px] text-[var(--text)] mb-1">No savings logged yet</div>
+            <div className="text-[13px] text-[var(--text3)]">Log savings for members above to see history here.</div>
+          </div>
           </div>
         )}
         <div className="space-y-3">
