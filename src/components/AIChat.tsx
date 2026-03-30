@@ -41,7 +41,13 @@ export const AIChat: React.FC<AIChatProps> = ({ db, setDb, isAdmin, isOpen, onCl
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'AI features are not available — GEMINI_API_KEY is not configured. Please add it in Netlify environment variables.' }]);
+        setIsLoading(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const model = "gemini-3-flash-preview";
       
       const addMemberTool: FunctionDeclaration = {
