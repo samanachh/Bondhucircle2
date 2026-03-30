@@ -18,9 +18,10 @@ import { TrendingUp, Users, PieChart as PieIcon, BarChart3, ArrowUpRight, ArrowD
 
 interface AnalyticsProps {
   db: AppData;
+  isAdmin: boolean;
 }
 
-export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
+export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'investments' | 'members'>('overview');
 
   const months = useMemo(() => {
@@ -138,12 +139,14 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
           >
             <TrendingUp size={16} /> Investments
           </button>
+          {isAdmin && (
           <button 
             onClick={() => setActiveTab('members')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'members' ? 'bg-[var(--bg4)] text-[var(--text)] shadow-sm' : 'text-[var(--text3)] hover:text-[var(--text)]'}`}
           >
             <Users size={16} /> Members
           </button>
+          )}
         </div>
       </div>
 
