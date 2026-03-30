@@ -454,19 +454,18 @@ export default function App() {
           onLogout={handleLogout}
         />
         {renderPage()}
-        </div>
-      <Toast msg={toastMsg} onDone={() => setToastMsg(null)} />
-      
-      {/* AI Chat Toggle */}
-      <button 
-        onClick={() => setIsAIChatOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-[var(--accent)] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-40 group"
-      >
-        <MessageSquare size={24} />
-        <span className="absolute right-16 bg-[var(--bg2)] text-[var(--text)] px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[var(--border)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
-          Ask Bondhu AI
-        </span>
-      </button>
+        <Toast msg={toastMsg} onDone={() => setToastMsg(null)} />
+
+        {/* AI Chat Toggle */}
+        <button 
+          onClick={() => setIsAIChatOpen(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-[var(--accent)] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-40 group"
+        >
+          <MessageSquare size={24} />
+          <span className="absolute right-16 bg-[var(--bg2)] text-[var(--text)] px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[var(--border)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
+            Ask Bondhu AI
+          </span>
+        </button>
 
         <AIChat 
           db={dbData} 
