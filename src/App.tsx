@@ -316,7 +316,8 @@ export default function App() {
         return (
           <MemberView
             db={dbData}
-            memberId={selectedMemberId}
+            selectedMemberId={selectedMemberId ?? dbData.members[0]?.id ?? 1}
+            setSelectedMemberId={setSelectedMemberId}
           />
         );
       case 'investments':
@@ -449,10 +450,11 @@ export default function App() {
           page={page} 
           isAdmin={isAdmin} 
           db={dbData} 
-          onAdminClick={() => {}}
+          onAdminClick={() => setShowLogin(true)}
           onLogout={handleLogout}
         />
         {renderPage()}
+        </div>
       <Toast msg={toastMsg} onDone={() => setToastMsg(null)} />
       
       {/* AI Chat Toggle */}
