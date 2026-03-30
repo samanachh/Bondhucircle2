@@ -39,24 +39,24 @@ export const Topbar: React.FC<TopbarProps> = ({ page, setPage, isAdmin, isMember
     const query = searchQuery.toLowerCase();
     const results: any[] = [];
 
-    // Search Members
-    Object.entries(db.members || {}).forEach(([id, m]: [string, any]) => {
-      if (m.name.toLowerCase().includes(query)) {
-        results.push({ id, type: 'member', name: m.name, icon: User, page: 'all-members' });
+    // Search Members (array)
+    (db.members || []).forEach((m: any) => {
+      if (m.name?.toLowerCase().includes(query)) {
+        results.push({ id: m.id, type: 'member', name: m.name, icon: User, page: 'all-members' });
       }
     });
 
-    // Search Investments
-    Object.entries(db.investments || {}).forEach(([id, inv]: [string, any]) => {
-      if (inv.name.toLowerCase().includes(query)) {
-        results.push({ id, type: 'investment', name: inv.name, icon: TrendingUp, page: 'investments' });
+    // Search Investments (array)
+    (db.investments || []).forEach((inv: any) => {
+      if (inv.name?.toLowerCase().includes(query)) {
+        results.push({ id: inv.id, type: 'investment', name: inv.name, icon: TrendingUp, page: 'investments' });
       }
     });
 
-    // Search Expenses
-    Object.entries(db.expenses || {}).forEach(([id, exp]: [string, any]) => {
-      if (exp.category.toLowerCase().includes(query)) {
-        results.push({ id, type: 'expense', name: exp.category, icon: Receipt, page: 'expenses' });
+    // Search Expenses (array)
+    (db.expenses || []).forEach((exp: any) => {
+      if (exp.category?.toLowerCase().includes(query)) {
+        results.push({ id: exp.id, type: 'expense', name: exp.category, icon: Receipt, page: 'expenses' });
       }
     });
 
@@ -79,10 +79,10 @@ export const Topbar: React.FC<TopbarProps> = ({ page, setPage, isAdmin, isMember
   };
 
   return (
-    <div className="h-16 bg-[var(--bg2)]/80 backdrop-blur-md border-b border-[var(--border)] flex items-center px-8 justify-between sticky top-0 z-50">
+    <div className="h-14 md:h-16 bg-[var(--bg2)]/80 backdrop-blur-md border-b border-[var(--border)] flex items-center px-4 md:px-8 justify-between sticky top-0 z-50">
       <div className="flex flex-col">
-        <div className="font-serif text-[16px] font-semibold text-[var(--text)] uppercase tracking-tight">{labels[page] || page}</div>
-        <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider font-medium">
+        <div className="font-serif text-[14px] md:text-[16px] font-semibold text-[var(--text)] uppercase tracking-tight">{labels[page] || page}</div>
+        <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider font-medium hidden md:block">
           {monthNumToLabel(db.currentMonth)}
         </div>
       </div>
