@@ -379,7 +379,7 @@ export default function App() {
       case 'log':
         return <TxLog db={dbData} setDb={updateDb} toast={toast} />;
       case 'analytics':
-        return <Analytics db={dbData} />;
+        return <Analytics db={dbData} isAdmin={isAdmin} />;
       case 'report':
         return <MonthlyReport db={dbData} toast={toast} isAdmin={isAdmin} />;
       case 'deposits':
