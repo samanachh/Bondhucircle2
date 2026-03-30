@@ -560,7 +560,7 @@ export default function App() {
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
       />
-      <div className={`${isCollapsed ? 'ml-[70px]' : 'ml-[220px]'} flex-1 min-h-screen relative transition-all duration-300`}>
+      <div className={`${isCollapsed ? 'md:ml-[70px]' : 'md:ml-[220px]'} ml-0 pt-[54px] md:pt-0 flex-1 min-h-screen relative transition-all duration-300`}>
         <Topbar 
           page={page} 
           setPage={setPage}
