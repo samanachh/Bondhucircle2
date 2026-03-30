@@ -50,11 +50,11 @@ export const MemberView: React.FC<MemberViewProps> = ({
       </div>
     );
 
-  const totalSaved = memberSavingsToMonth(m, currentMonth, unitValue);
   const confirmed = memberLoggedSavings(m.id, db.savingsLogs);
+  const expectedSaved = memberSavingsToMonth(m, currentMonth, unitValue);
   const deposited = memberDepositedToInvestments(m.id, investments, withdrawals);
   const uninvestedWithdrawals = (withdrawals || []).filter(w => w.memberId === m.id && w.sourceType === 'uninvested').reduce((s, w) => s + w.amount, 0);
-  const uninvested = Math.max(0, totalSaved - deposited - uninvestedWithdrawals);
+  const uninvested = Math.max(0, confirmed - deposited - uninvestedWithdrawals);
   const profitEarned = memberProfitEarned(m.id, investments, profitLogs, withdrawals);
   const expShare = memberExpenseShare(
     m.id,
@@ -68,8 +68,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
     m.joinMonth <= currentMonth && tu > 0 ? (m.units / tu) * 100 : 0;
 
   const savPct =
-    totalSaved + profitEarned > 0
-      ? (totalSaved / (totalSaved + profitEarned)) * 100
+    confirmed + profitEarned > 0
+      ? (confirmed / (confirmed + profitEarned)) * 100
       : 0;
   const prPct = 100 - savPct;
 
@@ -120,10 +120,10 @@ export const MemberView: React.FC<MemberViewProps> = ({
             Total Saved
           </div>
           <div className="font-serif text-[26px] text-[var(--blue)] leading-none">
-            {fmt(totalSaved)}
+            {fmt(confirmed)}
           </div>
           <div className="text-[12px] text-[var(--text3)] mt-1.5">
-            tk over {currentMonth - m.joinMonth + 1} months
+            Actual logged cash
           </div>
         </div>
         <div className="metric-card g">
@@ -202,7 +202,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
           <div className="flex gap-5 text-[13px] mb-4">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--blue)] inline-block" />{' '}
-              Savings {fmt(totalSaved)} tk
+              Savings {fmt(confirmed)} tk
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--accent)] inline-block" />{' '}
@@ -212,13 +212,15 @@ export const MemberView: React.FC<MemberViewProps> = ({
           <table className="w-full">
             <tbody>
               <tr>
-                <td className="text-[var(--text3)]">Total Saved (Expected)</td>
-                <td className="font-medium text-right">{fmt(totalSaved)} tk</td>
-              </tr>
-              <tr>
-                <td className="text-[var(--text3)]">Confirmed Savings</td>
+                <td className="text-[var(--text3)]">Total Saved (Confirmed)</td>
                 <td className="font-medium text-right text-[var(--teal)]">
                   {fmt(confirmed)} tk
+                </td>
+              </tr>
+              <tr>
+                <td className="text-[var(--text3)]">Expected Savings</td>
+                <td className="font-medium text-right">
+                  {fmt(expectedSaved)} tk
                 </td>
               </tr>
               <tr>
@@ -258,7 +260,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
               <tr>
                 <td className="font-semibold pt-1">Current Balance (Savings + Net Profit - Withdrawals)</td>
                 <td className="font-bold text-right text-[var(--blue)] pt-1">
-                  {fmt(totalSaved + netProfit - myWithdrawals)} tk
+                  {fmt(confirmed + netProfit - myWithdrawals)} tk
                 </td>
               </tr>
             </tbody>
@@ -330,7 +332,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
             Out of every 100 tk in your name:
           </div>
           {(() => {
-            const grand = totalSaved + profitEarned;
+            const grand = confirmed + profitEarned;
             if (grand === 0)
               return <div className="text-[var(--text3)]">No data yet.</div>;
             const rows: {
@@ -339,7 +341,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
               color: string;
               indent?: boolean;
             }[] = [
-              { label: 'Your savings', val: totalSaved, color: 'var(--blue)' },
+              { label: 'Your savings', val: confirmed, color: 'var(--blue)' },
               {
                 label: 'Profit from investments',
                 val: profitEarned,

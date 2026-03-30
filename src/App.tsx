@@ -9,6 +9,8 @@ import { MonthlySavingsAdmin } from './components/MonthlySavingsAdmin';
 import { ExpensesAdmin } from './components/ExpensesAdmin';
 import { WithdrawalsAdmin } from './components/WithdrawalsAdmin';
 import { AllMembersAdmin } from './components/AllMembersAdmin';
+import { Analytics } from './components/Analytics';
+import { MonthlyReport } from './components/MonthlyReport';
 import { Setup } from './components/Setup';
 import { TxLog } from './components/TxLog';
 import { Toast } from './components/Toast';
@@ -38,8 +40,12 @@ export default function App() {
   const [dbData, setDbData] = useState<AppData>(INITIAL_DATA);
   const [page, setPage] = useState('dashboard');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isMemberLoggedIn, setIsMemberLoggedIn] = useState(false);
+  const [showLogin, setShowLogin] = useState(true);
+  const [loginType, setLoginType] = useState<'admin' | 'member'>('member');
   const [adminPassword, setAdminPassword] = useState('');
+  const [memberPin, setMemberPin] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -122,9 +128,9 @@ export default function App() {
   }, []);
 
   const handleAdminLogin = () => {
-    if (adminPassword === 'bondhu123') { // Simple password as requested
+    if (adminPassword === 'bondhu123') {
       setIsAdmin(true);
-      setShowAdminLogin(false);
+      setShowLogin(false);
       setAdminPassword('');
       toast('Welcome Admin!');
     } else {
@@ -132,9 +138,24 @@ export default function App() {
     }
   };
 
+  const handleMemberLogin = () => {
+    const member = dbData.members.find(m => m.pin === memberPin);
+    if (member) {
+      setSelectedMemberId(member.id);
+      setIsMemberLoggedIn(true);
+      setShowLogin(false);
+      setMemberPin('');
+      toast(`Welcome ${member.name}!`);
+    } else {
+      toast('Incorrect PIN!');
+    }
+  };
+
   const handleLogout = () => {
     setIsAdmin(false);
-    toast('Logged out from admin mode.');
+    setIsMemberLoggedIn(false);
+    setShowLogin(true);
+    toast('Logged out.');
   };
 
   const updateDb = async (updater: AppData | ((prev: AppData) => AppData)) => {
@@ -241,7 +262,6 @@ export default function App() {
       await signInWithPopup(auth, provider);
       toast('Logged in with Google');
       setIsAdmin(true);
-      setShowAdminLogin(false);
     } catch (err) {
       console.error(err);
       toast('Google Login failed');
@@ -313,6 +333,10 @@ export default function App() {
         return <AllMembersAdmin db={dbData} onSelectMember={(id) => { setSelectedMemberId(id); setPage('members'); }} />;
       case 'log':
         return <TxLog db={dbData} setDb={updateDb} toast={toast} />;
+      case 'analytics':
+        return <Analytics db={dbData} />;
+      case 'report':
+        return <MonthlyReport db={dbData} toast={toast} />;
       case 'setup':
         return <Setup db={dbData} setDb={updateDb} toast={toast} onSeed={seedData} />;
       default:
@@ -320,78 +344,115 @@ export default function App() {
     }
   };
 
+  if (showLogin) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
+        <div className="bg-[var(--card-bg)] p-8 rounded-2xl border border-[var(--line)] w-full max-w-md shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="font-serif text-[32px] font-bold text-[var(--text)] tracking-tight">Bondhu Circle</div>
+            <div className="text-[12px] text-[var(--text3)] uppercase tracking-[2px] mt-1">Investment Tracker</div>
+          </div>
+
+          <div className="flex gap-1 bg-[var(--bg3)] p-1 rounded-xl mb-6">
+            <button 
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${loginType === 'member' ? 'bg-[var(--bg4)] text-[var(--text)] shadow-sm' : 'text-[var(--text3)]'}`}
+              onClick={() => setLoginType('member')}
+            >
+              Member
+            </button>
+            <button 
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${loginType === 'admin' ? 'bg-[var(--bg4)] text-[var(--text)] shadow-sm' : 'text-[var(--text3)]'}`}
+              onClick={() => setLoginType('admin')}
+            >
+              Admin
+            </button>
+          </div>
+
+          {loginType === 'admin' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-[var(--text3)] mb-2">Admin Password</label>
+                <input
+                  type="password"
+                  className="w-full bg-[var(--bg)] border border-[var(--line)] rounded-lg px-4 py-3 focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                  autoFocus
+                />
+              </div>
+              <button 
+                className="w-full bg-[var(--accent)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                onClick={handleAdminLogin}
+              >
+                Login as Admin
+              </button>
+              <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--line)]"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-[var(--card-bg)] px-2 text-[var(--text3)]">Or</span>
+                </div>
+              </div>
+              <button 
+                onClick={handleGoogleLogin}
+                className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors border border-gray-300"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                Sign in with Google
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-[var(--text3)] mb-2">Member 4-Digit PIN</label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  placeholder="0000"
+                  className="w-full bg-[var(--bg)] border border-[var(--line)] rounded-lg px-4 py-3 text-center text-2xl tracking-[12px] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  value={memberPin}
+                  onChange={(e) => setMemberPin(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleMemberLogin()}
+                  autoFocus
+                />
+              </div>
+              <button 
+                className="w-full bg-[var(--blue)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                onClick={handleMemberLogin}
+              >
+                Enter Dashboard
+              </button>
+              <p className="text-[11px] text-center text-[var(--text3)] mt-4">
+                Contact your admin if you don't have a PIN yet.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <Sidebar
         page={page}
         setPage={setPage}
         isAdmin={isAdmin}
-        setIsAdmin={setIsAdmin}
         onLogout={handleLogout}
+        isCollapsed={isCollapsed}
+        setIsCollapsed={setIsCollapsed}
       />
-      <div className="ml-[220px] flex-1 min-h-screen relative">
+      <div className={`${isCollapsed ? 'ml-[70px]' : 'ml-[220px]'} flex-1 min-h-screen relative transition-all duration-300`}>
         <Topbar 
           page={page} 
           isAdmin={isAdmin} 
           db={dbData} 
-          onAdminClick={() => setShowAdminLogin(true)}
+          onAdminClick={() => {}}
           onLogout={handleLogout}
         />
         {renderPage()}
-
-        {showAdminLogin && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-[var(--card-bg)] p-8 rounded-2xl border border-[var(--line)] w-full max-w-md shadow-2xl">
-              <h2 className="text-2xl font-serif mb-6 text-center">Admin Login</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-[var(--text3)] mb-2">Password</label>
-                  <input
-                    type="password"
-                    className="w-full bg-[var(--bg)] border border-[var(--line)] rounded-lg px-4 py-3 focus:outline-none focus:border-[var(--accent)] transition-colors"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                    autoFocus
-                  />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    className="flex-1 bg-[var(--accent)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
-                    onClick={handleAdminLogin}
-                  >
-                    Login
-                  </button>
-                  <button 
-                    className="flex-1 bg-[var(--line)] text-[var(--text2)] py-3 rounded-lg font-medium hover:bg-[var(--line-hover)] transition-colors"
-                    onClick={() => setShowAdminLogin(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-                <div className="relative py-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-[var(--line)]"></div>
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-[var(--card-bg)] px-2 text-[var(--text3)]">Or</span>
-                  </div>
-                </div>
-                <button 
-                  onClick={handleGoogleLogin}
-                  className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors border border-gray-300"
-                >
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-                  Sign in with Google
-                </button>
-                <p className="text-[10px] text-center text-[var(--text3)] mt-4">
-                  Logging in with Google will grant you write permissions if your email is authorized.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
       <Toast msg={toastMsg} onDone={() => setToastMsg(null)} />
       
       {/* AI Chat Toggle */}
@@ -405,13 +466,14 @@ export default function App() {
         </span>
       </button>
 
-      <AIChat 
-        db={dbData} 
-        setDb={updateDb}
-        isAdmin={isAdmin}
-        isOpen={isAIChatOpen} 
-        onClose={() => setIsAIChatOpen(false)} 
-      />
+        <AIChat 
+          db={dbData} 
+          setDb={updateDb}
+          isAdmin={isAdmin}
+          isOpen={isAIChatOpen} 
+          onClose={() => setIsAIChatOpen(false)} 
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Edit2, Trash2, ChevronUp, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, ChevronUp, ChevronRight, TrendingUp } from 'lucide-react';
 import { AppData, ProfitLog } from '../types';
 import {
   fmt,
@@ -138,6 +138,46 @@ export const AddProfitAdmin: React.FC<AddProfitAdminProps> = ({
             <Plus size={14} /> Add profit
           </button>
         </div>
+
+        {parseFloat(amount) > 0 && invId && (
+          <div className="mt-6 p-4 bg-[var(--bg3)] rounded-xl border border-[var(--accent)]/20 animate-in fade-in slide-in-from-top-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--accent)] mb-3 flex items-center gap-2">
+              <TrendingUp size={14} /> Distribution Preview (৳{parseFloat(amount).toLocaleString()})
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {(() => {
+                const inv = investments.find(i => i.id === invId);
+                if (!inv) return null;
+                const principal = totalForInv(inv);
+                const amt = parseFloat(amount);
+                
+                return members.map(mem => {
+                  const totalContrib = getMemberContributionToInv(mem.id, inv, investments);
+                  if (totalContrib <= 0) return null;
+                  const share = principal > 0 ? totalContrib / principal : 0;
+                  const profitEarned = amt * share;
+                  
+                  return (
+                    <div key={mem.id} className="bg-[var(--card-bg)] p-3 rounded-lg border border-[var(--line)] flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div className={`av w-6 h-6 text-[10px] ${AV_CLASSES[mem.id % 5]}`}>
+                          {initials(mem.name)}
+                        </div>
+                        <span className="text-[12px] font-medium truncate max-w-[80px]">{mem.name}</span>
+                      </div>
+                      <div className="text-[12px] font-bold text-[var(--accent)]">
+                        ৳{Math.round(profitEarned).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                }).filter(Boolean);
+              })()}
+            </div>
+            <div className="mt-3 text-[10px] text-[var(--text3)] italic">
+              * Based on current investment principal of ৳{totalForInv(investments.find(i => i.id === invId)!).toLocaleString()}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">

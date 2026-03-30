@@ -74,6 +74,14 @@ export const AllMembersAdmin: React.FC<AllMembersAdminProps> = ({
           const confirmed = memberLoggedSavings(m.id, db.savingsLogs);
           const avCls = AV_CLASSES[m.id % 5];
 
+          const updatePin = (newPin: string) => {
+            if (newPin.length > 4) return;
+            setDb(p => ({
+              ...p,
+              members: p.members.map(mem => mem.id === m.id ? { ...mem, pin: newPin } : mem)
+            }));
+          };
+
           return (
             <div
               key={m.id}
@@ -89,9 +97,21 @@ export const AllMembersAdmin: React.FC<AllMembersAdminProps> = ({
                     {monthNumToLabel(m.joinMonth)}
                   </div>
                 </div>
-                <span className={`badge ${isActive ? 'badge-g' : 'badge-r'}`}>
-                  {isActive ? 'Active' : 'Pending'}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`badge ${isActive ? 'badge-g' : 'badge-r'}`}>
+                    {isActive ? 'Active' : 'Pending'}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-[var(--text3)] uppercase">PIN:</span>
+                    <input 
+                      type="text" 
+                      value={m.pin || ''} 
+                      onChange={(e) => updatePin(e.target.value)}
+                      placeholder="4-digit"
+                      className="w-16 text-[11px] px-1.5 py-0.5 border border-[var(--border)] rounded bg-[var(--bg)]"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-5 gap-1.5 text-[12px] mb-2.5">
                 <div>

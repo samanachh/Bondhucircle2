@@ -62,8 +62,10 @@ export const totalInvested = (investments: Investment[], withdrawals: Withdrawal
     return s + Math.max(0, principal - wth);
   }, 0);
 
-export const totalProfitReceived = (profitLogs: ProfitLog[]) =>
+export const totalProfit = (profitLogs: ProfitLog[]) =>
   profitLogs.reduce((s, p) => s + p.amount, 0);
+
+export const totalProfitReceived = totalProfit;
 
 export const totalExpenses = (expenses: Expense[]) =>
   expenses.reduce((s, e) => s + e.amount, 0);
@@ -203,19 +205,23 @@ export const calculateInvRate = (inv: Investment, profitLogs: ProfitLog[], curre
   return (totalP / principal / months) * 100;
 };
 
-export const expectedSavingsForMonth = (members: Member[], month: number, unitValue: number) => {
-  return activeMembersAt(members, month).reduce((s, m) => s + m.units * unitValue, 0);
+export const confirmedSavingsForMonth = (db: AppData, month: number | string) => {
+  const m = typeof month === 'string' ? parseInt(month.split('-')[1]) + (parseInt(month.split('-')[0]) - START_YEAR) * 12 : month;
+  return (db.savingsLogs || []).filter(l => l.month === m).reduce((s, l) => s + l.amount, 0);
 };
 
-export const confirmedSavingsForMonth = (savingsLogs: SavingsLog[], month: number) => {
-  return (savingsLogs || []).filter(l => l.month === month).reduce((s, l) => s + l.amount, 0);
+export const expectedSavingsForMonth = (db: AppData, month: number | string) => {
+  const m = typeof month === 'string' ? parseInt(month.split('-')[1]) + (parseInt(month.split('-')[0]) - START_YEAR) * 12 : month;
+  return activeMembersAt(db.members, m).reduce((s, mem) => s + mem.units * db.unitValue, 0);
 };
 
-export const getMemberBacklog = (member: Member, currentMonth: number, savingsLogs: SavingsLog[], unitValue: number) => {
+export const getMemberBacklog = (db: AppData, memberId: number) => {
+  const member = db.members.find(m => m.id === memberId);
+  if (!member) return [];
   const backlog: { month: number; amount: number }[] = [];
-  for (let m = member.joinMonth; m < currentMonth; m++) {
-    const expected = member.units * unitValue;
-    const logged = (savingsLogs || [])
+  for (let m = member.joinMonth; m < db.currentMonth; m++) {
+    const expected = member.units * db.unitValue;
+    const logged = (db.savingsLogs || [])
       .filter(l => l.memberId === member.id && l.month === m)
       .reduce((s, l) => s + l.amount, 0);
     if (logged < expected) {
@@ -223,4 +229,22 @@ export const getMemberBacklog = (member: Member, currentMonth: number, savingsLo
     }
   }
   return backlog;
+};
+
+export const getMonthlyProfits = (db: AppData) => {
+  const profits: Record<string, number> = {};
+  db.profitLogs.forEach(p => {
+    const monthLabel = monthNumToLabel(p.month);
+    profits[monthLabel] = (profits[monthLabel] || 0) + p.amount;
+  });
+  return profits;
+};
+
+export const getMonthlyExpenses = (db: AppData) => {
+  const expenses: Record<string, number> = {};
+  db.expenses.forEach(e => {
+    const monthLabel = monthNumToLabel(e.month);
+    expenses[monthLabel] = (expenses[monthLabel] || 0) + e.amount;
+  });
+  return expenses;
 };

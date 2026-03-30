@@ -6,6 +6,7 @@ export type Member = {
   units: number;
   joinMonth: number;
   phone: string;
+  pin?: string; // 4-digit PIN for member login
 };
 
 export type InvestmentSource = {

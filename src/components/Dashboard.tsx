@@ -58,13 +58,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
     .reduce((s, l) => s + l.amount, 0);
 
   const uninvestedMoneyVal = uninvestedMoney(db);
-  const totalProfitReceivedVal = totalProfit;
-  const expectedThisMonth = expectedSavingsForMonth(members, currentMonth, unitValue);
-  const confirmedThisMonth = confirmedSavingsForMonth(savingsLogs, currentMonth);
+  const totalProfitReceivedVal = totalProfit(profitLogs);
+  const expectedThisMonth = expectedSavingsForMonth(db, currentMonth);
+  const confirmedThisMonth = confirmedSavingsForMonth(db, currentMonth);
 
   const backlogs = members.map(m => ({
     member: m,
-    backlog: getMemberBacklog(m, currentMonth, savingsLogs, unitValue)
+    backlog: getMemberBacklog(db, m.id)
   })).filter(b => b.backlog.length > 0);
 
   const totalBacklog = backlogs.reduce((s, b) => s + b.backlog.reduce((ss, m) => ss + m.amount, 0), 0);
@@ -346,7 +346,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="card">
+          <div className="flex justify-between items-center mb-3.5">
+            <div className="text-[13px] font-medium text-[var(--text2)] uppercase tracking-[0.5px]">
+              Savings Checklist: {monthNumToLabel(currentMonth)}
+            </div>
+            <div className="flex gap-3 text-[10px] font-bold uppercase">
+              <span className="text-green-500">Paid: {active.filter(m => savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth)).length}</span>
+              <span className="text-red-500">Pending: {active.filter(m => !savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth)).length}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {active.map(m => {
+              const isPaid = savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth);
+              return (
+                <div 
+                  key={m.id} 
+                  title={`${m.name}: ${isPaid ? 'Paid' : 'Pending'}`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all ${isPaid ? 'bg-green-500/10 border-green-500/30 text-green-600' : 'bg-red-500/10 border-red-500/30 text-red-600'}`}
+                >
+                  {m.name.substring(0, 2).toUpperCase()}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="card">
           <div className="text-[13px] font-medium text-[var(--text2)] mb-3.5 uppercase tracking-[0.5px]">
             Fund Source (Group)

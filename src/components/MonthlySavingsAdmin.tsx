@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { AppData, SavingsLog } from '../types';
 import {
   fmt,
@@ -117,6 +117,43 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
       animate={{ opacity: 1, y: 0 }}
       className="p-7 pb-[60px] max-w-[1100px]"
     >
+      <div className="card mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="text-[13px] font-medium text-[var(--text2)] uppercase tracking-[0.5px]">
+            Savings Checklist: {monthNumToLabel(month)}
+          </div>
+          <div className="flex gap-4 text-[11px] font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-green-500">
+              <CheckCircle2 size={14} /> Paid: {activeMems.filter(m => savingsLogs.some(s => s.memberId === m.id && s.month === Number(month))).length}
+            </div>
+            <div className="flex items-center gap-1.5 text-red-500">
+              <XCircle size={14} /> Pending: {activeMems.filter(m => !savingsLogs.some(s => s.memberId === m.id && s.month === Number(month))).length}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {activeMems.map(m => {
+            const isPaid = savingsLogs.some(s => s.memberId === m.id && s.month === Number(month));
+            return (
+              <div 
+                key={m.id} 
+                className={`p-3 rounded-xl border flex flex-col items-center text-center gap-2 transition-all ${isPaid ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}
+              >
+                <div className={`av w-10 h-10 text-xs ${AV_CLASSES[m.id % 5]}`}>
+                  {initials(m.name)}
+                </div>
+                <div>
+                  <div className="text-[12px] font-bold text-[var(--text)] line-clamp-1">{m.name}</div>
+                  <div className={`text-[10px] font-bold uppercase tracking-tight ${isPaid ? 'text-green-500' : 'text-red-500'}`}>
+                    {isPaid ? 'Confirmed' : 'Pending'}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="card mb-6">
         <div className="text-[13px] font-medium text-[var(--text2)] mb-3.5 uppercase tracking-[0.5px]">
           Log Monthly Savings
