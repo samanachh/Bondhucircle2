@@ -64,6 +64,27 @@ export type Withdrawal = {
   note?: string;
 };
 
+export type DepositRequest = {
+  id: string;
+  memberId: number;
+  month: number;
+  amount: number;
+  date: string;
+  memo?: string;
+  screenshotUrl?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  processedAt?: string;
+};
+
+export type AuditLog = {
+  id: string;
+  userId: string; // 'admin' or memberId
+  action: string;
+  details: string;
+  timestamp: string;
+};
+
 export type AppData = {
   unitValue: number;
   currentMonth: number;
@@ -74,9 +95,12 @@ export type AppData = {
   txLog: TxLogEntry[];
   savingsLogs: SavingsLog[];
   withdrawals: Withdrawal[];
+  depositRequests: DepositRequest[];
+  auditLogs: AuditLog[];
   nextMemberId: number;
   nextInvId: number;
   nextExpId: number;
+  nextDepositId: number;
 };
 
 export type NavItem = {

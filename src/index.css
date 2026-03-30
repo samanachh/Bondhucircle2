@@ -35,7 +35,27 @@
     color: var(--text);
     font-family: var(--font-sans);
     font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  @media (max-width: 640px) {
+    body {
+      font-size: 13px;
+    }
+    h1, h2, h3, .font-serif {
+      letter-spacing: -0.01em;
+    }
+  }
+}
+
+@keyframes logo-load {
+  0% { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-logo {
+  animation: logo-load 0.5s ease-out forwards;
 }
 
 @layer components {

@@ -22,12 +22,14 @@ interface MemberViewProps {
   db: AppData;
   selectedMemberId: number;
   setSelectedMemberId: (id: number) => void;
+  isAdmin: boolean;
 }
 
 export const MemberView: React.FC<MemberViewProps> = ({
   db,
   selectedMemberId,
   setSelectedMemberId,
+  isAdmin,
 }) => {
   const {
     members,
@@ -79,38 +81,141 @@ export const MemberView: React.FC<MemberViewProps> = ({
 
   const avClass = AV_CLASSES[m.id % 5];
 
+  // Savings Progress Ring Data
+  const totalAllMembersSavings = members.reduce((s, mem) => s + memberLoggedSavings(mem.id, db.savingsLogs), 0);
+  const mySavingsShare = totalAllMembersSavings > 0 ? (confirmed / totalAllMembersSavings) * 100 : 0;
+  
+  // Monthly Savings Sparkline Data
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
+    const month = ((currentMonth - 1 - i + 12) % 12) + 1;
+    const amount = (db.savingsLogs || [])
+      .filter(l => l.memberId === m.id && l.month === month)
+      .reduce((s, l) => s + l.amount, 0);
+    return { month, amount };
+  }).reverse();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       className="p-7 pb-[60px] max-w-[1100px]"
     >
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-[var(--radius)] p-6 mb-5 flex items-center gap-[18px]">
-        <div
-          className={`av w-[52px] h-[52px] text-[18px] ${avClass}`}
-        >
-          {initials(m.name)}
+      {/* Profile Banner */}
+      <div className="relative mb-8 overflow-hidden rounded-3xl bg-linear-to-br from-[var(--bg2)] to-[var(--bg3)] border border-[var(--border)]">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)] opacity-[0.03] blur-[80px] -mr-32 -mt-32 rounded-full" />
+        <div className="p-8 flex flex-col md:flex-row items-center gap-8 relative z-10">
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center text-[32px] font-bold border-4 border-[var(--bg)] shadow-2xl ${avClass}`}>
+            {initials(m.name)}
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="font-serif text-[32px] font-bold text-[var(--text)] mb-2">{m.name}</h1>
+            <div className="flex flex-wrap justify-center md:justify-start gap-4 text-[13px] text-[var(--text3)] font-medium">
+              <div className="flex items-center gap-2 bg-[var(--bg)] px-3 py-1.5 rounded-full border border-[var(--border)]">
+                <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
+                {m.units} Units
+              </div>
+              <div className="flex items-center gap-2 bg-[var(--bg)] px-3 py-1.5 rounded-full border border-[var(--border)]">
+                <span className="w-2 h-2 rounded-full bg-[var(--blue)]" />
+                Joined {monthNumToLabel(m.joinMonth)}
+              </div>
+              <div className="flex items-center gap-2 bg-[var(--bg)] px-3 py-1.5 rounded-full border border-[var(--border)]">
+                <span className="w-2 h-2 rounded-full bg-[var(--amber)]" />
+                {fmt(m.units * unitValue)} tk/month
+              </div>
+            </div>
+          </div>
+          {isAdmin && (
+            <div className="bg-[var(--bg)] p-4 rounded-2xl border border-[var(--border)]">
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider mb-2 font-bold">Admin Switch</div>
+              <select
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(Number(e.target.value))}
+                className="text-[12px] px-3 py-2 bg-[var(--bg2)] border border-[var(--border)] rounded-xl w-full"
+              >
+                {members.map((mem) => (
+                  <option key={mem.id} value={mem.id}>
+                    {mem.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
-        <div className="flex-1">
-          <div className="font-serif text-[20px]">{m.name}</div>
-          <div className="text-[13px] text-[var(--text3)] mt-0.5">
-            {m.units} unit{m.units > 1 ? 's' : ''} · {fmt(m.units * unitValue)} tk/month · Joined{' '}
-            {monthNumToLabel(m.joinMonth)}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Savings Progress Ring */}
+        <div className="card flex flex-col items-center justify-center p-8">
+          <div className="text-[11px] text-[var(--text3)] uppercase tracking-[1.5px] mb-6 font-bold">Circle Savings Share</div>
+          <div className="relative w-40 h-40">
+            <svg className="w-full h-full" viewBox="0 0 100 100">
+              <circle
+                className="text-[var(--bg3)] stroke-current"
+                strokeWidth="10"
+                fill="transparent"
+                r="40"
+                cx="50"
+                cy="50"
+              />
+              <motion.circle
+                className="text-[var(--accent)] stroke-current"
+                strokeWidth="10"
+                strokeLinecap="round"
+                fill="transparent"
+                r="40"
+                cx="50"
+                cy="50"
+                style={{
+                  strokeDasharray: 251.2,
+                  strokeDashoffset: 251.2 - (251.2 * mySavingsShare) / 100,
+                }}
+                initial={{ strokeDashoffset: 251.2 }}
+                animate={{ strokeDashoffset: 251.2 - (251.2 * mySavingsShare) / 100 }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-2xl font-bold">{f2(mySavingsShare)}%</div>
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider">of total</div>
+            </div>
+          </div>
+          <div className="mt-6 text-center">
+            <div className="text-[13px] text-[var(--text2)] font-medium">Your contribution to the</div>
+            <div className="text-[13px] text-[var(--text2)] font-medium">Bondhu Circle fund</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-[11px] text-[var(--text3)] mb-1">Viewing as</div>
-          <select
-            value={selectedMemberId}
-            onChange={(e) => setSelectedMemberId(Number(e.target.value))}
-            className="text-[12px] px-2 py-1.5"
-          >
-            {members.map((mem) => (
-              <option key={mem.id} value={mem.id}>
-                {mem.name}
-              </option>
-            ))}
-          </select>
+
+        {/* Monthly Savings Sparkline */}
+        <div className="card lg:col-span-2 p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div className="text-[11px] text-[var(--text3)] uppercase tracking-[1.5px] font-bold">Savings History (Last 6 Months)</div>
+            <div className="text-[12px] font-bold text-[var(--blue)]">Avg: {fmt(confirmed / Math.max(1, last6Months.length))} tk</div>
+          </div>
+          <div className="h-40 flex items-end gap-3">
+            {last6Months.map((d, i) => {
+              const max = Math.max(...last6Months.map(x => x.amount), 1);
+              const height = (d.amount / max) * 100;
+              const isCurrent = d.month === currentMonth;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-3 group">
+                  <div className="relative w-full flex flex-col items-center">
+                    <motion.div 
+                      initial={{ height: 0 }}
+                      animate={{ height: `${height}%` }}
+                      transition={{ duration: 1, delay: i * 0.1 }}
+                      className={`w-full rounded-t-lg transition-all duration-300 ${isCurrent ? 'bg-[var(--accent)] shadow-[0_0_15px_rgba(74,222,128,0.3)]' : 'bg-[var(--bg3)] group-hover:bg-[var(--bg4)]'}`}
+                    />
+                    <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold bg-[var(--bg4)] px-1.5 py-0.5 rounded border border-[var(--border)]">
+                      {fmt(d.amount)}
+                    </div>
+                  </div>
+                  <div className={`text-[10px] font-bold uppercase tracking-wider ${isCurrent ? 'text-[var(--accent)]' : 'text-[var(--text3)]'}`}>
+                    {monthNumToLabel(d.month).substring(0, 3)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -13,8 +13,10 @@ import { Analytics } from './components/Analytics';
 import { MonthlyReport } from './components/MonthlyReport';
 import { Setup } from './components/Setup';
 import { TxLog } from './components/TxLog';
+import { DepositTracking } from './components/DepositTracking';
 import { Toast } from './components/Toast';
 import { AIChat } from './components/AIChat';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AppData, Member, Investment, ProfitLog, Expense, SavingsLog, Withdrawal, TxLogEntry } from './types';
 import { db, auth } from './firebase';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -31,9 +33,12 @@ const INITIAL_DATA: AppData = {
   txLog: [],
   savingsLogs: [],
   withdrawals: [],
+  depositRequests: [],
+  auditLogs: [],
   nextMemberId: 1,
   nextInvId: 1,
   nextExpId: 1,
+  nextDepositId: 1,
 };
 
 export default function App() {
@@ -41,9 +46,11 @@ export default function App() {
   const [page, setPage] = useState('dashboard');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMemberLoggedIn, setIsMemberLoggedIn] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [showLogin, setShowLogin] = useState(true);
   const [loginType, setLoginType] = useState<'admin' | 'member'>('member');
   const [adminPassword, setAdminPassword] = useState('');
+  const [memberInvestorId, setMemberInvestorId] = useState('');
   const [memberPin, setMemberPin] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -101,6 +108,16 @@ export default function App() {
       setDbData(prev => ({ ...prev, withdrawals }));
     });
 
+    const unsubDepositRequests = onSnapshot(collection(db, 'depositRequests'), (snap) => {
+      const depositRequests = snap.docs.map(d => d.data() as any);
+      setDbData(prev => ({ ...prev, depositRequests }));
+    });
+
+    const unsubAuditLogs = onSnapshot(collection(db, 'auditLogs'), (snap) => {
+      const auditLogs = snap.docs.map(d => d.data() as any);
+      setDbData(prev => ({ ...prev, auditLogs }));
+    });
+
     const unsubConfig = onSnapshot(doc(db, 'config', 'global'), (snap) => {
       if (snap.exists()) {
         const config = snap.data();
@@ -111,6 +128,7 @@ export default function App() {
           nextMemberId: config.nextMemberId ?? 1,
           nextInvId: config.nextInvId ?? 1,
           nextExpId: config.nextExpId ?? 1,
+          nextDepositId: config.nextDepositId ?? 1,
         }));
       }
     });
@@ -139,22 +157,25 @@ export default function App() {
   };
 
   const handleMemberLogin = () => {
-    const member = dbData.members.find(m => m.pin === memberPin);
+    const member = dbData.members.find(m => m.phone === memberInvestorId && m.pin === memberPin);
     if (member) {
       setSelectedMemberId(member.id);
       setIsMemberLoggedIn(true);
       setShowLogin(false);
       setMemberPin('');
+      setMemberInvestorId('');
       toast(`Welcome ${member.name}!`);
     } else {
-      toast('Incorrect PIN!');
+      toast('Incorrect Investor ID or PIN!');
     }
   };
 
   const handleLogout = () => {
     setIsAdmin(false);
     setIsMemberLoggedIn(false);
+    setIsGuest(false);
     setShowLogin(true);
+    setPage('dashboard');
     toast('Logged out.');
   };
 
@@ -167,13 +188,15 @@ export default function App() {
           newData.currentMonth !== dbDataRef.current.currentMonth ||
           newData.nextMemberId !== dbDataRef.current.nextMemberId ||
           newData.nextInvId !== dbDataRef.current.nextInvId ||
-          newData.nextExpId !== dbDataRef.current.nextExpId) {
+          newData.nextExpId !== dbDataRef.current.nextExpId ||
+          newData.nextDepositId !== dbDataRef.current.nextDepositId) {
         await setDoc(doc(db, 'config', 'global'), {
           unitValue: newData.unitValue,
           currentMonth: newData.currentMonth,
           nextMemberId: newData.nextMemberId,
           nextInvId: newData.nextInvId,
           nextExpId: newData.nextExpId,
+          nextDepositId: newData.nextDepositId,
         });
       }
 
@@ -249,6 +272,26 @@ export default function App() {
         for (const w of removed) await deleteDoc(doc(db, 'withdrawals', w.id));
       }
 
+      // Deposit Requests
+      for (const dr of newData.depositRequests) {
+        const oldDR = dbDataRef.current.depositRequests.find(odr => odr.id === dr.id);
+        if (!oldDR || JSON.stringify(oldDR) !== JSON.stringify(dr)) {
+          await setDoc(doc(db, 'depositRequests', dr.id), dr);
+        }
+      }
+      if (newData.depositRequests.length < dbDataRef.current.depositRequests.length) {
+        const removed = dbDataRef.current.depositRequests.filter(dr => !newData.depositRequests.find(ndr => ndr.id === dr.id));
+        for (const dr of removed) await deleteDoc(doc(db, 'depositRequests', dr.id));
+      }
+
+      // Audit Logs
+      for (const al of newData.auditLogs) {
+        const oldAL = dbDataRef.current.auditLogs.find(oal => oal.id === al.id);
+        if (!oldAL || JSON.stringify(oldAL) !== JSON.stringify(al)) {
+          await setDoc(doc(db, 'auditLogs', al.id), al);
+        }
+      }
+
       setDbData(newData);
     } catch (err) {
       console.error('Firestore Error:', err);
@@ -311,13 +354,14 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard':
-        return <Dashboard db={dbData} isAdmin={isAdmin} />;
+        return <Dashboard db={dbData} isAdmin={isAdmin} isMemberLoggedIn={isMemberLoggedIn} isGuest={isGuest} memberId={selectedMemberId} />;
       case 'members':
         return (
           <MemberView
             db={dbData}
-            selectedMemberId={selectedMemberId ?? dbData.members[0]?.id ?? 1}
+            selectedMemberId={selectedMemberId || dbData.members[0]?.id || 0}
             setSelectedMemberId={setSelectedMemberId}
+            isAdmin={isAdmin}
           />
         );
       case 'investments':
@@ -331,27 +375,32 @@ export default function App() {
       case 'withdrawals':
         return <WithdrawalsAdmin db={dbData} setDb={updateDb} toast={toast} />;
       case 'all-members':
-        return <AllMembersAdmin db={dbData} onSelectMember={(id) => { setSelectedMemberId(id); setPage('members'); }} />;
+        return <AllMembersAdmin db={dbData} setDb={updateDb} toast={toast} />;
       case 'log':
         return <TxLog db={dbData} setDb={updateDb} toast={toast} />;
       case 'analytics':
         return <Analytics db={dbData} />;
       case 'report':
-        return <MonthlyReport db={dbData} toast={toast} />;
+        return <MonthlyReport db={dbData} toast={toast} isAdmin={isAdmin} />;
+      case 'deposits':
+        return <DepositTracking db={dbData} onUpdate={updateDb} toast={toast} isAdmin={isAdmin} memberId={selectedMemberId} />;
       case 'setup':
         return <Setup db={dbData} setDb={updateDb} toast={toast} onSeed={seedData} />;
       default:
-        return <Dashboard db={dbData} isAdmin={isAdmin} />;
+        return <Dashboard db={dbData} isAdmin={isAdmin} isMemberLoggedIn={isMemberLoggedIn} isGuest={isGuest} memberId={selectedMemberId} />;
     }
   };
 
   if (showLogin) {
     return (
-      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
-        <div className="bg-[var(--card-bg)] p-8 rounded-2xl border border-[var(--line)] w-full max-w-md shadow-2xl">
-          <div className="text-center mb-8">
-            <div className="font-serif text-[32px] font-bold text-[var(--text)] tracking-tight">Bondhu Circle</div>
-            <div className="text-[12px] text-[var(--text3)] uppercase tracking-[2px] mt-1">Investment Tracker</div>
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Background Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--accent)] opacity-[0.08] blur-[120px] rounded-full pointer-events-none" />
+        
+        <div className="bg-[var(--card-bg)] p-8 rounded-2xl border border-[var(--line)] w-full max-w-md shadow-2xl relative z-10">
+          <div className="text-center mb-8 animate-logo">
+            <div className="font-serif text-[32px] font-bold text-[var(--text)] tracking-tight text-center">Bondhu Circle</div>
+            <div className="text-[12px] text-[var(--text3)] uppercase tracking-[2px] mt-1 text-center">Investment Tracker</div>
           </div>
 
           <div className="flex gap-1 bg-[var(--bg3)] p-1 rounded-xl mb-6">
@@ -403,21 +452,66 @@ export default function App() {
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
                 Sign in with Google
               </button>
+              <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--line)]"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-[var(--card-bg)] px-2 text-[var(--text3)]">Or</span>
+                </div>
+              </div>
+              <button 
+                className="w-full bg-[var(--bg3)] text-[var(--text2)] py-3 rounded-lg font-medium hover:bg-[var(--bg4)] transition-colors border border-[var(--line)]"
+                onClick={() => {
+                  setIsGuest(true);
+                  setShowLogin(false);
+                  toast('Entering as Guest (Read-only)');
+                }}
+              >
+                Guest Preview (Read-only)
+              </button>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-wider text-[var(--text3)] mb-2">Member 4-Digit PIN</label>
+                <label className="block text-xs uppercase tracking-wider text-[var(--text3)] mb-2">Investor ID (Mobile Number)</label>
                 <input
-                  type="password"
-                  maxLength={4}
-                  placeholder="0000"
-                  className="w-full bg-[var(--bg)] border border-[var(--line)] rounded-lg px-4 py-3 text-center text-2xl tracking-[12px] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  value={memberPin}
-                  onChange={(e) => setMemberPin(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleMemberLogin()}
+                  type="text"
+                  placeholder="01XXXXXXXXX"
+                  className="w-full bg-[var(--bg)] border border-[var(--line)] rounded-lg px-4 py-3 focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  value={memberInvestorId}
+                  onChange={(e) => setMemberInvestorId(e.target.value)}
                   autoFocus
                 />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-[var(--text3)] mb-4 text-center">4-Digit PIN</label>
+                <div className="relative flex justify-center gap-3 mb-6">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div 
+                      key={i}
+                      className={`w-[52px] h-[52px] rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                        memberPin.length > i 
+                          ? 'bg-[var(--accent)] border-[var(--accent)] shadow-[0_0_15px_rgba(74,222,128,0.3)]' 
+                          : 'bg-[var(--bg3)] border-[var(--border)]'
+                      }`}
+                    >
+                      {memberPin.length > i && <div className="w-2.5 h-2.5 rounded-full bg-[var(--bg)]" />}
+                    </div>
+                  ))}
+                  <input
+                    type="password"
+                    maxLength={4}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    value={memberPin}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      if (val.length <= 4) setMemberPin(val);
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleMemberLogin()}
+                    autoFocus
+                  />
+                </div>
               </div>
               <button 
                 className="w-full bg-[var(--blue)] text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
@@ -428,6 +522,24 @@ export default function App() {
               <p className="text-[11px] text-center text-[var(--text3)] mt-4">
                 Contact your admin if you don't have a PIN yet.
               </p>
+              <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--line)]"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-[var(--card-bg)] px-2 text-[var(--text3)]">Or</span>
+                </div>
+              </div>
+              <button 
+                className="w-full bg-[var(--bg3)] text-[var(--text2)] py-3 rounded-lg font-medium hover:bg-[var(--bg4)] transition-colors border border-[var(--line)]"
+                onClick={() => {
+                  setIsGuest(true);
+                  setShowLogin(false);
+                  toast('Entering as Guest (Read-only)');
+                }}
+              >
+                Guest Preview (Read-only)
+              </button>
             </div>
           )}
         </div>
@@ -441,6 +553,9 @@ export default function App() {
         page={page}
         setPage={setPage}
         isAdmin={isAdmin}
+        isMemberLoggedIn={isMemberLoggedIn}
+        isGuest={isGuest}
+        db={dbData}
         onLogout={handleLogout}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
@@ -448,24 +563,40 @@ export default function App() {
       <div className={`${isCollapsed ? 'ml-[70px]' : 'ml-[220px]'} flex-1 min-h-screen relative transition-all duration-300`}>
         <Topbar 
           page={page} 
+          setPage={setPage}
           isAdmin={isAdmin} 
+          isMemberLoggedIn={isMemberLoggedIn}
+          isGuest={isGuest}
           db={dbData} 
-          onAdminClick={() => setShowLogin(true)}
+          onAdminClick={() => {
+            if (isAdmin) return;
+            const pass = prompt('Enter Admin Password:');
+            if (pass === 'bondhu123') {
+              setIsAdmin(true);
+              setIsMemberLoggedIn(false);
+              setIsGuest(false);
+              toast('Welcome Admin!');
+            } else if (pass !== null) {
+              toast('Incorrect password!');
+            }
+          }}
           onLogout={handleLogout}
         />
-        {renderPage()}
+        <ErrorBoundary>
+          {renderPage()}
+        </ErrorBoundary>
         <Toast msg={toastMsg} onDone={() => setToastMsg(null)} />
-
-        {/* AI Chat Toggle */}
-        <button 
-          onClick={() => setIsAIChatOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-[var(--accent)] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-40 group"
-        >
-          <MessageSquare size={24} />
-          <span className="absolute right-16 bg-[var(--bg2)] text-[var(--text)] px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[var(--border)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
-            Ask Bondhu AI
-          </span>
-        </button>
+      
+      {/* AI Chat Toggle */}
+      <button 
+        onClick={() => setIsAIChatOpen(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-[var(--accent)] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-40 group"
+      >
+        <MessageSquare size={24} />
+        <span className="absolute right-16 bg-[var(--bg2)] text-[var(--text)] px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[var(--border)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
+          Ask Bondhu AI
+        </span>
+      </button>
 
         <AIChat 
           db={dbData} 

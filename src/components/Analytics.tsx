@@ -11,7 +11,8 @@ import {
   getMonthlyExpenses,
   monthNumToLabel,
   totalProfit,
-  totalExpenses
+  totalExpenses,
+  totalForInv
 } from '../utils';
 import { TrendingUp, Users, PieChart as PieIcon, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
@@ -27,16 +28,23 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      m.push(d.toISOString().substring(0, 7));
+      const monthIdx = d.getMonth();
+      const year = d.getFullYear();
+      const monthNum = (year - 2024) * 12 + monthIdx + 1;
+      m.push({
+        label: monthNumToLabel(monthNum),
+        iso: d.toISOString().substring(0, 7),
+        num: monthNum
+      });
     }
     return m;
   }, []);
 
   const savingsData = useMemo(() => {
     return months.map(m => ({
-      month: m,
-      confirmed: confirmedSavingsForMonth(db, m),
-      expected: expectedSavingsForMonth(db, m)
+      month: m.label,
+      confirmed: confirmedSavingsForMonth(db, m.num),
+      expected: expectedSavingsForMonth(db, m.num)
     }));
   }, [db, months]);
 
@@ -45,9 +53,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
     const monthlyExpenses = getMonthlyExpenses(db);
     
     return months.map(m => ({
-      month: m,
-      profit: monthlyProfits[m] || 0,
-      expense: monthlyExpenses[m] || 0
+      month: m.label,
+      profit: monthlyProfits[m.label] || 0,
+      expense: monthlyExpenses[m.label] || 0
     }));
   }, [db, months]);
 
@@ -72,13 +80,14 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
 
   const investmentData = useMemo(() => {
     return db.investments.map(inv => {
-      const profit = db.profits
-        .filter(p => p.investmentId === inv.id)
+      const profit = db.profitLogs
+        .filter(p => p.invId === inv.id)
         .reduce((sum, p) => sum + p.amount, 0);
-      const roi = inv.amount > 0 ? (profit / inv.amount) * 100 : 0;
+      const principal = totalForInv(inv);
+      const roi = principal > 0 ? (profit / principal) * 100 : 0;
       return {
         name: inv.name,
-        principal: inv.amount,
+        principal,
         profit,
         roi: parseFloat(roi.toFixed(1))
       };
@@ -87,9 +96,11 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
 
   const memberStats = useMemo(() => {
     return db.members.map(m => {
-      const totalExpected = m.units * 2500 * months.length; // Simplified for last 6 months
-      const totalConfirmed = db.savings
-        .filter(s => s.memberId === m.id && months.includes(s.month))
+      const totalExpected = m.units * db.unitValue * months.length;
+      const totalConfirmed = db.savingsLogs
+        .filter(s => {
+          return s.memberId === m.id && months.some(mo => mo.num === s.month);
+        })
         .reduce((sum, s) => sum + s.amount, 0);
       const rate = totalExpected > 0 ? (totalConfirmed / totalExpected) * 100 : 0;
       
@@ -136,13 +147,13 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
         </div>
       </div>
 
-      {activeTab === 'overview' && (
+      {activeTab === 'overview' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Savings Trend */}
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Monthly Savings: Confirmed vs Expected</h3>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={savingsData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="month" stroke="var(--text3)" fontSize={12} tickLine={false} axisLine={false} />
@@ -163,7 +174,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Cumulative Profit Growth</h3>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={cumulativeProfitData}>
                   <defs>
                     <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
@@ -187,7 +198,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Monthly Profit vs Expenses</h3>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={profitExpenseData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="month" stroke="var(--text3)" fontSize={12} tickLine={false} axisLine={false} />
@@ -207,7 +218,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Expense Breakdown by Category</h3>
             <div className="h-[300px] flex items-center">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={expenseBreakdown}
@@ -231,14 +242,12 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
             </div>
           </div>
         </div>
-      )}
-
-      {activeTab === 'investments' && (
+      ) : activeTab === 'investments' ? (
         <div className="space-y-6">
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Principal vs Profit Comparison</h3>
             <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={investmentData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--line)" />
                   <XAxis type="number" stroke="var(--text3)" fontSize={12} tickLine={false} axisLine={false} />
@@ -272,9 +281,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db }) => {
             ))}
           </div>
         </div>
-      )}
-
-      {activeTab === 'members' && (
+      ) : (
         <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Member Savings Collection Rate (Last 6 Months)</h3>
           <div className="space-y-6">

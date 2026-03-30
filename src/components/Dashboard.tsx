@@ -25,9 +25,31 @@ import { CAT_COLORS } from '../constants';
 interface DashboardProps {
   db: AppData;
   isAdmin: boolean;
+  isMemberLoggedIn: boolean;
+  isGuest: boolean;
+  memberId: number | null;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
+const AnimatedCounter: React.FC<{ value: number; duration?: number; prefix?: string; suffix?: string }> = ({ value, duration = 1200, prefix = '', suffix = '' }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTime: number | null = null;
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      setCount(Math.floor(progress * value));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+    window.requestAnimationFrame(step);
+  }, [value, duration]);
+
+  return <span>{prefix}{fmt(count)}{suffix}</span>;
+};
+
+export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLoggedIn, isGuest, memberId }) => {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
 
@@ -58,7 +80,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
     .reduce((s, l) => s + l.amount, 0);
 
   const uninvestedMoneyVal = uninvestedMoney(db);
-  const totalProfitReceivedVal = totalProfit(profitLogs);
+  const totalProfitReceivedVal = totalProfit;
   const expectedThisMonth = expectedSavingsForMonth(db, currentMonth);
   const confirmedThisMonth = confirmedSavingsForMonth(db, currentMonth);
 
@@ -70,16 +92,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
   const totalBacklog = backlogs.reduce((s, b) => s + b.backlog.reduce((ss, m) => ss + m.amount, 0), 0);
   const [showBacklog, setShowBacklog] = useState(false);
 
+  // Filter checklist for members
+  const checklistMembers = isMemberLoggedIn && memberId 
+    ? active.filter(m => m.id === memberId)
+    : active;
+
   const fetchAiInsight = async () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      setAiInsight('Focus on consistent savings to build long-term wealth together! 💪');
-      setLoadingAi(false);
-      return;
-    }
     setLoadingAi(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const prompt = `As a financial advisor for a community investment group called "Bondhu Circle", analyze these metrics and give a 2-sentence encouraging insight:
       Total Invested: ${totalInvestedVal} tk
       Total Profit: ${totalProfit} tk
@@ -116,6 +137,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
     expCatTotals[e.category] = (expCatTotals[e.category] || 0) + e.amount;
   });
 
+  const currentYear = new Date().getFullYear();
+  const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
+  const loggedInMember = isMemberLoggedIn ? members.find(m => m.id === memberId) : null;
+
+  // Top Saver Calculation
+  const monthlySavingsMap: Record<number, number> = {};
+  (savingsLogs || []).filter(l => l.month === currentMonth).forEach(l => {
+    monthlySavingsMap[l.memberId] = (monthlySavingsMap[l.memberId] || 0) + l.amount;
+  });
+  
+  let topSaverId = -1;
+  let topSaverAmount = 0;
+  Object.entries(monthlySavingsMap).forEach(([id, amt]) => {
+    if (amt > topSaverAmount) {
+      topSaverAmount = amt;
+      topSaverId = parseInt(id);
+    }
+  });
+  
+  const topSaver = members.find(m => m.id === topSaverId);
+  const isTopSaver = isMemberLoggedIn && memberId === topSaverId;
+
+  // Month Progress
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const monthProgress = (currentDay / daysInMonth) * 100;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -123,12 +172,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
       className="p-7 pb-[60px] max-w-[1200px]"
     >
       <div className="flex items-center justify-between mb-[24px]">
-        <div>
-          <div className="font-serif text-[28px] font-bold text-[var(--text)]">Dashboard</div>
+        <div className="flex-1">
+          <div className="font-serif text-[28px] font-bold text-[var(--text)]">
+            Dashboard {currentMonthName} {currentYear}
+          </div>
+          {isMemberLoggedIn && loggedInMember && (
+            <div className="text-[18px] text-[var(--accent)] font-medium mt-1">
+              Welcome back, {loggedInMember.name}
+            </div>
+          )}
           <div className="text-[14px] text-[var(--text3)] mt-1 font-medium">
             {monthNumToLabel(currentMonth)} · {active.length} active members
           </div>
+          
+          {/* Month Progress Bar */}
+          <div className="mt-4 max-w-xs">
+            <div className="flex justify-between text-[10px] uppercase tracking-wider text-[var(--text3)] mb-1 font-bold">
+              <span>Month Progress</span>
+              <span>{Math.round(monthProgress)}%</span>
+            </div>
+            <div className="h-1 bg-[var(--bg3)] rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${monthProgress}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className="h-full bg-[var(--accent)]"
+              />
+            </div>
+          </div>
         </div>
+
+        {/* Top Saver Card */}
+        {topSaver && (
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="hidden lg:flex items-center gap-4 bg-[var(--bg2)] border border-[var(--accent)]/20 p-4 rounded-2xl shadow-lg shadow-green-500/5 relative overflow-hidden group"
+          >
+            <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Sparkles size={40} className="text-[var(--accent)]" />
+            </div>
+            <div className="w-12 h-12 rounded-full bg-[var(--accent)]/10 flex items-center justify-center text-[var(--accent)] border border-[var(--accent)]/20 font-bold text-lg">
+              {isTopSaver ? "🏆" : topSaver.name.substring(0, 1)}
+            </div>
+            <div>
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] font-bold">Top Saver This Month</div>
+              <div className="text-[16px] font-bold text-[var(--text)]">
+                {isTopSaver ? "You!" : topSaver.name}
+              </div>
+              <div className="text-[12px] text-[var(--accent)] font-bold">
+                {fmt(topSaverAmount)} tk
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* AI Insight Card */}
@@ -166,7 +263,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Uninvested Money
           </div>
           <div className="font-serif text-[28px] text-[var(--text)] leading-none font-bold">
-            {fmt(uninvestedMoneyVal)}
+            <AnimatedCounter value={uninvestedMoneyVal} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Available in brokerage
@@ -178,7 +275,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Total Invested
           </div>
           <div className="font-serif text-[28px] text-[var(--accent)] leading-none font-bold">
-            {fmt(totalInvestedVal)}
+            <AnimatedCounter value={totalInvestedVal} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Across {investments.length} active pools
@@ -190,7 +287,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Net Profit
           </div>
           <div className="font-serif text-[28px] text-[var(--amber)] leading-none font-bold">
-            {fmt(netProfit)}
+            <AnimatedCounter value={netProfit} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             After {fmt(totalExp)} tk expenses
@@ -202,7 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Total Profit Received
           </div>
           <div className="font-serif text-[28px] text-[var(--purple)] leading-none font-bold">
-            {fmt(totalProfitReceivedVal)}
+            <AnimatedCounter value={totalProfitReceivedVal} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Gross profit logged
@@ -214,7 +311,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Confirmed Savings
           </div>
           <div className="font-serif text-[28px] text-[var(--teal)] leading-none font-bold">
-            {fmt(totalConfirmedSavings)}
+            <AnimatedCounter value={totalConfirmedSavings} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Actual logged cash
@@ -226,7 +323,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Withdrawals
           </div>
           <div className="font-serif text-[28px] text-[var(--red)] leading-none font-bold">
-            {fmt(totalWithdrawalsVal)}
+            <AnimatedCounter value={totalWithdrawalsVal} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Total member withdrawals
@@ -238,7 +335,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Expected This Month
           </div>
           <div className="font-serif text-[28px] text-[var(--indigo)] leading-none font-bold">
-            {fmt(expectedThisMonth)}
+            <AnimatedCounter value={expectedThisMonth} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Based on active units
@@ -250,7 +347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
             Confirmed This Month
           </div>
           <div className="font-serif text-[28px] text-[var(--emerald)] leading-none font-bold">
-            {fmt(confirmedThisMonth)}
+            <AnimatedCounter value={confirmedThisMonth} />
           </div>
           <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
             Logged for {monthNumToLabel(currentMonth)}
@@ -266,7 +363,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
               Backlog Money
             </div>
             <div className="font-serif text-[28px] text-[var(--rose)] leading-none font-bold">
-              {fmt(totalBacklog)}
+              <AnimatedCounter value={totalBacklog} />
             </div>
             <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
               Missed previous months
@@ -353,31 +450,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="card">
-          <div className="flex justify-between items-center mb-3.5">
-            <div className="text-[13px] font-medium text-[var(--text2)] uppercase tracking-[0.5px]">
-              Savings Checklist: {monthNumToLabel(currentMonth)}
+        {!isGuest && (
+          <div className="card">
+            <div className="flex justify-between items-center mb-3.5">
+              <div className="text-[13px] font-medium text-[var(--text2)] uppercase tracking-[0.5px]">
+                {isMemberLoggedIn ? 'My Savings Status' : 'Savings Checklist'}: {monthNumToLabel(currentMonth)}
+              </div>
+              <div className="flex gap-3 text-[10px] font-bold uppercase">
+                <span className="text-green-500">Paid: {checklistMembers.filter(m => savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth)).length}</span>
+                <span className="text-red-500">Pending: {checklistMembers.filter(m => !savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth)).length}</span>
+              </div>
             </div>
-            <div className="flex gap-3 text-[10px] font-bold uppercase">
-              <span className="text-green-500">Paid: {active.filter(m => savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth)).length}</span>
-              <span className="text-red-500">Pending: {active.filter(m => !savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth)).length}</span>
+            <div className="flex flex-wrap gap-2">
+              {checklistMembers.map(m => {
+                const isPaid = savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth);
+                return (
+                  <div 
+                    key={m.id} 
+                    title={`${m.name}: ${isPaid ? 'Paid' : 'Pending'}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all ${isPaid ? 'bg-green-500/10 border-green-500/30 text-green-600' : 'bg-red-500/10 border-red-500/30 text-red-600'}`}
+                  >
+                    {m.name.substring(0, 2).toUpperCase()}
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {active.map(m => {
-              const isPaid = savingsLogs.some(s => s.memberId === m.id && s.month === currentMonth);
-              return (
-                <div 
-                  key={m.id} 
-                  title={`${m.name}: ${isPaid ? 'Paid' : 'Pending'}`}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all ${isPaid ? 'bg-green-500/10 border-green-500/30 text-green-600' : 'bg-red-500/10 border-red-500/30 text-red-600'}`}
-                >
-                  {m.name.substring(0, 2).toUpperCase()}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        )}
 
         <div className="card">
           <div className="text-[13px] font-medium text-[var(--text2)] mb-3.5 uppercase tracking-[0.5px]">
@@ -406,33 +505,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin }) => {
           <div className="text-[13px] font-medium">Grand total: {fmt(grand)} tk</div>
         </div>
 
-        <div className="card">
-          <div className="text-[13px] font-medium text-[var(--text2)] mb-3.5 uppercase tracking-[0.5px]">
-            Expenses by Category
-          </div>
-          {Object.keys(expCatTotals).length === 0 && (
-            <div className="text-[var(--text3)] text-[13px]">No expenses logged.</div>
-          )}
-          {Object.entries(expCatTotals).map(([cat, amt]) => (
-            <div
-              key={cat}
-              className="flex items-center gap-2 mb-2 text-[13px]"
-            >
+        {!isGuest && (
+          <div className="card">
+            <div className="text-[13px] font-medium text-[var(--text2)] mb-3.5 uppercase tracking-[0.5px]">
+              Expenses by Category
+            </div>
+            {Object.keys(expCatTotals).length === 0 && (
+              <div className="text-[var(--text3)] text-[13px]">No expenses logged.</div>
+            )}
+            {Object.entries(expCatTotals).map(([cat, amt]) => (
               <div
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: CAT_COLORS[cat] || '#888' }}
-              />
-              <div className="flex-1">{cat}</div>
-              <div className="text-[var(--red)] font-medium">{fmt(amt)} tk</div>
-            </div>
-          ))}
-          {totalExp > 0 && (
-            <div className="border-t border-[var(--border)] pt-2 mt-1 text-[13px] font-medium flex justify-between">
-              <span>Total</span>
-              <span>{fmt(totalExp)} tk</span>
-            </div>
-          )}
-        </div>
+                key={cat}
+                className="flex items-center gap-2 mb-2 text-[13px]"
+              >
+                <div
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ background: CAT_COLORS[cat] || '#888' }}
+                />
+                <div className="flex-1">{cat}</div>
+                <div className="text-[var(--red)] font-medium">{fmt(amt)} tk</div>
+              </div>
+            ))}
+            {totalExp > 0 && (
+              <div className="border-t border-[var(--border)] pt-2 mt-1 text-[13px] font-medium flex justify-between">
+                <span>Total</span>
+                <span>{fmt(totalExp)} tk</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {showBacklog && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">

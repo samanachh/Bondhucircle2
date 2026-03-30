@@ -36,11 +36,15 @@ export const AllMembersAdmin: React.FC<AllMembersAdminProps> = ({
     currentMonth,
   } = db;
   const [viewMonth, setViewMonth] = useState(currentMonth);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const remove = (id: number) => {
-    if (investments.some((inv) => inv.sources.some((s) => s.memberId === id)))
+    if (investments.some((inv) => inv.sources.some((s) => s.memberId === id))) {
+      setConfirmDeleteId(null);
       return toast('Cannot remove: member is in an investment');
+    }
     setDb((p) => ({ ...p, members: p.members.filter((m) => m.id !== id) }));
+    setConfirmDeleteId(null);
     toast('Member removed');
   };
 
@@ -101,16 +105,30 @@ export const AllMembersAdmin: React.FC<AllMembersAdminProps> = ({
                   <span className={`badge ${isActive ? 'badge-g' : 'badge-r'}`}>
                     {isActive ? 'Active' : 'Pending'}
                   </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-[var(--text3)] uppercase">PIN:</span>
-                    <input 
-                      type="text" 
-                      value={m.pin || ''} 
-                      onChange={(e) => updatePin(e.target.value)}
-                      placeholder="4-digit"
-                      className="w-16 text-[11px] px-1.5 py-0.5 border border-[var(--border)] rounded bg-[var(--bg)]"
-                    />
-                  </div>
+                  {confirmDeleteId === m.id ? (
+                    <div className="flex gap-1 mt-1">
+                      <button 
+                        onClick={() => remove(m.id)}
+                        className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded font-bold"
+                      >
+                        Confirm
+                      </button>
+                      <button 
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="bg-[var(--bg3)] text-[var(--text2)] text-[10px] px-2 py-0.5 rounded font-bold border border-[var(--border)]"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setConfirmDeleteId(m.id)}
+                      className="text-red-400 hover:text-red-500 p-1 transition-colors mt-1"
+                      title="Remove Member"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-5 gap-1.5 text-[12px] mb-2.5">

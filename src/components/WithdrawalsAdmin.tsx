@@ -30,6 +30,7 @@ export const WithdrawalsAdmin: React.FC<WithdrawalsAdminProps> = ({
     { type: 'uninvested', id: '', amount: '' }
   ]);
   const [note, setNote] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const addSource = () => {
     setSources([...sources, { type: 'uninvested', id: '', amount: '' }]);
@@ -78,10 +79,15 @@ export const WithdrawalsAdmin: React.FC<WithdrawalsAdminProps> = ({
   };
 
   const remove = (id: string) => {
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      return;
+    }
     setDb((p) => ({
       ...p,
       withdrawals: p.withdrawals.filter((w) => w.id !== id),
     }));
+    setConfirmDeleteId(null);
     toast('Withdrawal deleted');
   };
 
@@ -260,12 +266,31 @@ export const WithdrawalsAdmin: React.FC<WithdrawalsAdminProps> = ({
                       <td className="font-bold text-[var(--red)]">-{fmt(w.amount)} tk</td>
                       <td className="text-[var(--text3)] text-[13px] italic">{w.note || '—'}</td>
                       <td className="text-right">
-                        <button
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                          onClick={() => remove(w.id)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          {confirmDeleteId === w.id ? (
+                            <div className="flex gap-1">
+                              <button
+                                className="btn btn-primary btn-sm"
+                                onClick={() => remove(w.id)}
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setConfirmDeleteId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                              onClick={() => remove(w.id)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

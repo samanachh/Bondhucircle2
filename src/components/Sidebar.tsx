@@ -22,6 +22,9 @@ interface SidebarProps {
   page: string;
   setPage: (page: string) => void;
   isAdmin: boolean;
+  isMemberLoggedIn: boolean;
+  isGuest: boolean;
+  db: any;
   onLogout: () => void;
   isCollapsed: boolean;
   setIsCollapsed: (v: boolean) => void;
@@ -31,15 +34,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   page,
   setPage,
   isAdmin,
+  isMemberLoggedIn,
+  isGuest,
+  db,
   onLogout,
   isCollapsed,
   setIsCollapsed,
 }) => {
   const memberNav: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'members', label: 'My Profile', icon: User },
+    ...(!isGuest ? [{ id: 'members', label: 'My Profile', icon: User }] : []),
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'report', label: 'Monthly Report', icon: ClipboardList },
+    ...(!isGuest ? [
+      { id: 'report', label: 'Monthly Report', icon: ClipboardList },
+      { id: 'deposits', label: 'Deposits', icon: ClipboardList },
+    ] : []),
   ];
 
   const adminNav: NavItem[] = [
@@ -49,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'expenses', label: 'Expenses', icon: Receipt },
     { id: 'withdrawals', label: 'Withdrawals', icon: Wallet },
     { id: 'all-members', label: 'All Members', icon: Users },
+    { id: 'deposits', label: 'Approve Deposits', icon: ClipboardList },
     { id: 'log', label: 'Transaction Log', icon: FileText },
     { id: 'setup', label: 'Setup', icon: Settings },
   ];
@@ -108,36 +118,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Admin Panel
               </div>
             )}
-            {adminNav.map((n) => (
-              <button
-                key={n.id}
-                title={isCollapsed ? n.label : ''}
-                className={`nav-item w-full flex items-center gap-3 p-3 rounded-xl cursor-pointer text-[13px] mb-1 transition-all text-left border-none bg-none ${
-                  page === n.id 
-                    ? 'bg-[var(--bg4)] text-[var(--text)] font-semibold shadow-sm' 
-                    : 'text-[var(--text2)] hover:bg-[var(--bg3)] hover:text-[var(--text)]'
-                } ${isCollapsed ? 'justify-center' : ''}`}
-                onClick={() => setPage(n.id)}
-              >
-                <n.icon size={18} className={page === n.id ? 'text-[var(--accent)]' : 'opacity-60'} />
-                {!isCollapsed && n.label}
-              </button>
-            ))}
+            {adminNav.map((n) => {
+              const pendingCount = n.id === 'deposits' && db?.deposits 
+                ? Object.values(db.deposits).filter((d: any) => d.status === 'pending').length 
+                : 0;
+                
+              return (
+                <button
+                  key={n.id}
+                  title={isCollapsed ? n.label : ''}
+                  className={`nav-item w-full flex items-center gap-3 p-3 rounded-xl cursor-pointer text-[13px] mb-1 transition-all text-left border-none bg-none relative ${
+                    page === n.id 
+                      ? 'bg-[var(--bg4)] text-[var(--text)] font-semibold shadow-sm' 
+                      : 'text-[var(--text2)] hover:bg-[var(--bg3)] hover:text-[var(--text)]'
+                  } ${isCollapsed ? 'justify-center' : ''}`}
+                  onClick={() => setPage(n.id)}
+                >
+                  <n.icon size={18} className={page === n.id ? 'text-[var(--accent)]' : 'opacity-60'} />
+                  {!isCollapsed && n.label}
+                  {pendingCount > 0 && (
+                    <span className={`absolute ${isCollapsed ? 'top-1 right-1' : 'right-3'} flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg animate-bounce`}>
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </>
         )}
       </nav>
       
       <div className="p-4 border-t border-[var(--border)] bg-[var(--bg2)]">
-        {isAdmin ? (
-          <button 
-            onClick={onLogout}
-            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 text-red-400 text-[12px] font-medium hover:bg-red-500/20 transition-colors border border-red-500/20 ${isCollapsed ? 'px-0' : ''}`}
-          >
-            <Lock size={14} /> {!isCollapsed && 'Exit Admin'}
-          </button>
-        ) : (
-          <div className="text-[11px] text-[var(--text3)] text-center py-2 italic">
-            {!isCollapsed ? 'Viewing as Member' : 'M'}
+        <button 
+          onClick={onLogout}
+          className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 text-red-400 text-[12px] font-medium hover:bg-red-500/20 transition-colors border border-red-500/20 ${isCollapsed ? 'px-0' : ''}`}
+        >
+          <Lock size={14} /> {!isCollapsed && (isAdmin ? 'Exit Admin' : isMemberLoggedIn ? 'Logout' : 'Back to Login')}
+        </button>
+        {!isCollapsed && (
+          <div className="text-[10px] text-[var(--text3)] text-center mt-2 italic">
+            {isAdmin ? 'Admin Mode' : isMemberLoggedIn ? 'Member Mode' : 'Guest Mode'}
           </div>
         )}
       </div>

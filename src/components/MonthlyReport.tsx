@@ -28,9 +28,10 @@ import {
 interface MonthlyReportProps {
   db: AppData;
   toast: (msg: string) => void;
+  isAdmin: boolean;
 }
 
-export const MonthlyReport: React.FC<MonthlyReportProps> = ({ db, toast }) => {
+export const MonthlyReport: React.FC<MonthlyReportProps> = ({ db, toast, isAdmin }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -45,22 +46,27 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({ db, toast }) => {
   }, []);
 
   const reportData = useMemo(() => {
-    const monthSavings = db.savings.filter(s => s.month === selectedMonth);
-    const monthProfits = db.profits.filter(p => p.date.startsWith(selectedMonth));
-    const monthExpenses = db.expenses.filter(e => e.date.startsWith(selectedMonth));
-    const monthWithdrawals = db.withdrawals.filter(w => w.date.startsWith(selectedMonth));
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const monthNum = (year - 2024) * 12 + month; // Assuming START_YEAR is 2024 based on utils.ts logic
+
+    const monthSavings = db.savingsLogs.filter(s => s.month === monthNum);
+    const monthProfits = db.profitLogs.filter(p => p.month === monthNum);
+    const monthExpenses = db.expenses.filter(e => e.month === monthNum);
+    const monthWithdrawals = db.withdrawals.filter(w => w.month === monthNum);
 
     const totalConfirmed = monthSavings.reduce((sum, s) => sum + s.amount, 0);
-    const totalExpected = expectedSavingsForMonth(db, selectedMonth);
+    const totalExpected = expectedSavingsForMonth(db, monthNum);
     const totalProfitMonth = monthProfits.reduce((sum, p) => sum + p.amount, 0);
     const totalExpenseMonth = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     const memberStatus = db.members.map(m => {
       const saving = monthSavings.find(s => s.memberId === m.id);
-      const expected = m.units * 2500;
+      const expected = m.units * db.unitValue;
       const confirmed = saving ? saving.amount : 0;
-      const backlog = getMemberBacklog(db, m.id);
-      const share = totalProfitMonth > 0 ? (m.units / db.members.reduce((sum, mem) => sum + mem.units, 0)) * totalProfitMonth : 0;
+      const backlogArr = getMemberBacklog(db, m.id);
+      const backlogTotal = backlogArr.reduce((sum, b) => sum + b.amount, 0);
+      const totalUnits = db.members.reduce((sum, mem) => sum + mem.units, 0);
+      const share = totalProfitMonth > 0 && totalUnits > 0 ? (m.units / totalUnits) * totalProfitMonth : 0;
 
       return {
         id: m.id,
@@ -69,7 +75,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({ db, toast }) => {
         expected,
         confirmed,
         isPaid: confirmed >= expected,
-        backlog,
+        backlog: backlogTotal,
         share
       };
     });
@@ -186,60 +192,68 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({ db, toast }) => {
         </div>
 
         {/* Payment Status Table */}
-        <div className="mb-12">
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Member Payment Status</h3>
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                <th className="py-3 font-bold">Member</th>
-                <th className="py-3 font-bold">Units</th>
-                <th className="py-3 font-bold">Expected</th>
-                <th className="py-3 font-bold">Confirmed</th>
-                <th className="py-3 font-bold text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {reportData.memberStatus.map((m, idx) => (
-                <tr key={idx} className="text-sm">
-                  <td className="py-4 font-medium">{m.name}</td>
-                  <td className="py-4 text-gray-500">{m.units}</td>
-                  <td className="py-4 text-gray-500">৳{m.expected.toLocaleString()}</td>
-                  <td className="py-4 font-medium">৳{m.confirmed.toLocaleString()}</td>
-                  <td className="py-4 text-right">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${m.isPaid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {m.isPaid ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
-                      {m.isPaid ? 'Paid' : 'Pending'}
-                    </span>
-                  </td>
+        {isAdmin && (
+          <div className="mb-12">
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Member Payment Status</h3>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                  <th className="py-3 font-bold">Member</th>
+                  <th className="py-3 font-bold">Units</th>
+                  <th className="py-3 font-bold">Expected</th>
+                  <th className="py-3 font-bold">Confirmed</th>
+                  <th className="py-3 font-bold text-right">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {reportData.memberStatus.map((m, idx) => (
+                  <tr key={idx} className="text-sm">
+                    <td className="py-4 font-medium">{m.name}</td>
+                    <td className="py-4 text-gray-500">{m.units}</td>
+                    <td className="py-4 text-gray-500">৳{m.expected.toLocaleString()}</td>
+                    <td className="py-4 font-medium">৳{m.confirmed.toLocaleString()}</td>
+                    <td className="py-4 text-right">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${m.isPaid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {m.isPaid ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
+                        {m.isPaid ? 'Paid' : 'Pending'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Profit Distribution */}
         <div className="grid grid-cols-2 gap-12 mb-12">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Profit Distribution</h3>
-            <div className="space-y-3">
-              {reportData.memberStatus.map((m, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">{m.name} ({m.units} Unit)</span>
-                  <span className="font-bold">৳{m.share.toLocaleString()}</span>
-                </div>
-              ))}
+          {isAdmin && (
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Profit Distribution</h3>
+              <div className="space-y-3">
+                {reportData.memberStatus.map((m, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">{m.name} ({m.units} Unit)</span>
+                    <span className="font-bold">৳{m.share.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Backlogs</h3>
             <div className="space-y-3">
-              {reportData.memberStatus.filter(m => m.backlog > 0).map((m, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">{m.name}</span>
-                  <span className="font-bold text-red-500">৳{m.backlog.toLocaleString()}</span>
-                </div>
-              ))}
-              {reportData.memberStatus.filter(m => m.backlog > 0).length === 0 && (
+              {isAdmin ? (
+                reportData.memberStatus.filter(m => m.backlog > 0).map((m, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">{m.name}</span>
+                    <span className="font-bold text-red-500">৳{m.backlog.toLocaleString()}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-400 italic">Backlog details are restricted to admin</div>
+              )}
+              {isAdmin && reportData.memberStatus.filter(m => m.backlog > 0).length === 0 && (
                 <div className="text-sm text-gray-400 italic">No pending backlogs</div>
               )}
             </div>
@@ -253,7 +267,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({ db, toast }) => {
             <div className="space-y-3">
               {reportData.monthProfits.map((p, idx) => (
                 <div key={idx} className="flex justify-between items-center text-[13px]">
-                  <span className="text-gray-600">{db.investments.find(i => i.id === p.investmentId)?.name || 'Unknown'}</span>
+                  <span className="text-gray-600">{db.investments.find(i => i.id === p.invId)?.name || 'Unknown'}</span>
                   <span className="font-medium text-green-600">+৳{p.amount.toLocaleString()}</span>
                 </div>
               ))}

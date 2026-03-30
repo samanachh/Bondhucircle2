@@ -19,6 +19,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
   const [units, setUnits] = useState(1);
   const [joinMonth, setJoinMonth] = useState(1);
   const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
   const [uv, setUv] = useState(unitValue.toString());
   const [cm, setCm] = useState(currentMonth);
 
@@ -30,6 +31,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
       units: Number(units),
       joinMonth: Number(joinMonth),
       phone: phone.trim(),
+      pin: pin.trim() || '0000',
     };
     setDb((p) => ({
       ...p,
@@ -38,6 +40,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
     }));
     setName('');
     setPhone('');
+    setPin('');
     toast(`${name} added`);
   };
 
@@ -128,13 +131,25 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] text-[var(--text3)] uppercase tracking-[0.5px]">
-              WhatsApp phone
+              Investor ID (Phone)
             </label>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+8801XXXXXXXXX"
+              placeholder="01XXXXXXXXX"
               className="w-[150px]"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] text-[var(--text3)] uppercase tracking-[0.5px]">
+              PIN
+            </label>
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="0000"
+              maxLength={4}
+              className="w-[80px]"
             />
           </div>
           <button className="btn btn-primary" onClick={addMember}>
@@ -155,7 +170,8 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
                 <th>Units</th>
                 <th>Monthly</th>
                 <th>Joined</th>
-                <th>WhatsApp</th>
+                <th>Investor ID</th>
+                <th>PIN</th>
                 <th></th>
               </tr>
             </thead>
@@ -188,8 +204,24 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
                           ),
                         }))
                       }
-                      placeholder="+880..."
+                      placeholder="01..."
                       className="w-[130px] py-1 px-2 text-[12px]"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={m.pin || ''}
+                      onChange={(e) =>
+                        setDb((p) => ({
+                          ...p,
+                          members: p.members.map((x) =>
+                            x.id === m.id ? { ...x, pin: e.target.value } : x
+                          ),
+                        }))
+                      }
+                      placeholder="0000"
+                      maxLength={4}
+                      className="w-[60px] py-1 px-2 text-[12px]"
                     />
                   </td>
                   <td>
