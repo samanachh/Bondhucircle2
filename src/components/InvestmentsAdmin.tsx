@@ -530,7 +530,11 @@ export const InvestmentsAdmin: React.FC<InvestmentsAdminProps> = ({
           All Investments
         </div>
         {investments.length === 0 && (
-          <div className="text-[var(--text3)] text-[13px]">No investments yet.</div>
+          <div className="flex flex-col items-center py-12 text-center">
+            <div className="text-[40px] mb-3">📈</div>
+            <div className="font-serif text-[16px] text-[var(--text)] mb-1">No investments yet</div>
+            <div className="text-[13px] text-[var(--text3)]">Add your first investment above to get started.</div>
+          </div>
         )}
         <div className="space-y-3">
           {[...investments].reverse().map((inv) => {
