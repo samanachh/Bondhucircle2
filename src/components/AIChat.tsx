@@ -43,7 +43,7 @@ export const AIChat: React.FC<AIChatProps> = ({ db, setDb, isAdmin, isOpen, onCl
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'AI features are unavailable — GEMINI_API_KEY is not set. Please add it in your Netlify environment variables.' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: 'AI features are unavailable — GEMINI_API_KEY is not set. Please add it in your hosting provider\'s environment variables.' }]);
         setIsLoading(false);
         return;
       }
@@ -385,7 +385,7 @@ export const AIChat: React.FC<AIChatProps> = ({ db, setDb, isAdmin, isOpen, onCl
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="fixed bottom-6 right-6 w-[400px] h-[600px] bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl z-[100] flex flex-col overflow-hidden"
+          className="fixed bottom-6 right-6 w-[calc(100vw-48px)] sm:w-[340px] h-[500px] max-h-[80vh] bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl z-[100] flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="p-4 border-b border-[var(--border)] bg-[var(--bg2)] flex justify-between items-center">
