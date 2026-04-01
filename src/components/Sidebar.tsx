@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   LayoutDashboard, User, TrendingUp, DollarSign,
   Wallet, Receipt, Users, FileText, Settings, Lock,
-  BarChart3, ClipboardList, ChevronLeft, ChevronRight, X, Menu,
+  BarChart3, ClipboardList, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { NavItem } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
+import { NavItem, AppData } from '../types';
 
 interface SidebarProps {
   page: string;
@@ -12,17 +13,19 @@ interface SidebarProps {
   isAdmin: boolean;
   isMemberLoggedIn: boolean;
   isGuest: boolean;
-  db: any;
+  db: AppData;
   onLogout: () => void;
   isCollapsed: boolean;
   setIsCollapsed: (v: boolean) => void;
+  mobileOpen: boolean;
+  setMobileOpen: (v: boolean) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   page, setPage, isAdmin, isMemberLoggedIn, isGuest,
   db, onLogout, isCollapsed, setIsCollapsed,
+  mobileOpen, setMobileOpen,
 }) => {
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const memberNav: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -76,8 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
           {adminNav.map((n) => {
-            const pendingCount = n.id === 'deposits' && db?.deposits
-              ? Object.values(db.deposits).filter((d: any) => d.status === 'pending').length
+            const pendingCount = n.id === 'deposits' && db?.depositRequests
+              ? db.depositRequests.filter(d => d.status === 'pending').length
               : 0;
             return (
               <button key={n.id} title={collapsed ? n.label : ''}
@@ -116,35 +119,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* ── Mobile top bar ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-[54px] bg-[var(--bg2)] border-b border-[var(--border)] flex items-center justify-between px-4 z-[200]">
-        <div className="font-serif text-[17px] flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
-          Bondhu Circle
-        </div>
-        <button onClick={() => setMobileOpen(v => !v)}
-          className="p-2 rounded-lg text-[var(--text2)] hover:bg-[var(--bg3)] border-none bg-none cursor-pointer">
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
       {/* ── Mobile drawer ── */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-[150]" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-black/60" />
-          <div className="relative w-[260px] h-full bg-[var(--bg2)] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="p-5 pb-3 border-b border-[var(--border)]">
-              <div className="font-serif text-[18px] flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
-                Bondhu Circle
+      <AnimatePresence>
+        {mobileOpen && (
+          <div className="md:hidden fixed inset-0 z-[150]">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+              onClick={() => setMobileOpen(false)} 
+            />
+            <motion.div 
+              initial={{ x: -260 }}
+              animate={{ x: 0 }}
+              exit={{ x: -260 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="relative w-[260px] h-full bg-[var(--bg2)] flex flex-col shadow-2xl" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-5 pb-3 border-b border-[var(--border)]">
+                <div className="font-serif text-[18px] flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
+                  Bondhu Circle
+                </div>
+                <div className="text-[10px] text-[var(--text3)] mt-1 tracking-[1px] uppercase font-medium">Investment Tracker</div>
               </div>
-              <div className="text-[10px] text-[var(--text3)] mt-1 tracking-[1px] uppercase font-medium">Investment Tracker</div>
-            </div>
-            <nav className="flex-1 p-3 overflow-y-auto"><NavContent collapsed={false} /></nav>
-            <LogoutBtn collapsed={false} />
+              <nav className="flex-1 p-3 overflow-y-auto"><NavContent collapsed={false} /></nav>
+              <LogoutBtn collapsed={false} />
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ── Desktop sidebar ── */}
       <div className={`hidden md:flex ${isCollapsed ? 'w-[70px]' : 'w-[220px]'} shrink-0 bg-[var(--bg2)] border-r border-[var(--border)] flex-col fixed top-0 left-0 h-screen z-[100] transition-all duration-300 ease-in-out`}>

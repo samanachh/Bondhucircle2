@@ -3,7 +3,9 @@ import { AppData, DepositRequest, AuditLog, SavingsLog } from '../types';
 import { Upload, Check, X, Clock, FileText, Image as ImageIcon, AlertCircle, Calendar, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MONTHS, START_YEAR } from '../constants';
-import { labelToMonthNum, monthNumToLabel } from '../utils';
+import { labelToMonthNum, monthNumToLabel, fmt } from '../utils';
+import { ConfirmModal } from './ConfirmModal';
+import emailjs from '@emailjs/browser';
 
 interface DepositTrackingProps {
   db: AppData;
@@ -32,10 +34,40 @@ export const DepositTracking: React.FC<DepositTrackingProps> = ({ db, isAdmin, m
     }
   };
 
+  const [duplicateMsg, setDuplicateMsg] = useState<string | null>(null);
+
   const handleSubmit = () => {
     if (!screenshot || !memberId) return;
 
     const depositMonthNum = labelToMonthNum(selectedMonthIdx, selectedYear);
+
+    // Check for existing approved deposit or savings log for this month
+    const existingApproved = db.depositRequests.find(
+      r => r.memberId === memberId && r.month === depositMonthNum && r.status === 'approved'
+    );
+    if (existingApproved) {
+      const processedDate = existingApproved.processedAt 
+        ? new Date(existingApproved.processedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) + ' at ' + new Date(existingApproved.processedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+        : 'an earlier date';
+      setDuplicateMsg(`Your savings for ${monthNumToLabel(depositMonthNum)} has already been deposited on ${processedDate}.`);
+      return;
+    }
+    
+    const existingPending = db.depositRequests.find(
+      r => r.memberId === memberId && r.month === depositMonthNum && r.status === 'pending'
+    );
+    if (existingPending) {
+      setDuplicateMsg(`You already have a pending deposit request for ${monthNumToLabel(depositMonthNum)}. Please wait for admin approval.`);
+      return;
+    }
+
+    const existingSavingsLog = db.savingsLogs.find(
+      s => s.memberId === memberId && s.month === depositMonthNum
+    );
+    if (existingSavingsLog) {
+      setDuplicateMsg(`Your savings for ${monthNumToLabel(depositMonthNum)} has already been recorded by admin.`);
+      return;
+    }
 
     const newRequest: DepositRequest = {
       id: db.nextDepositId.toString(),
@@ -75,7 +107,6 @@ export const DepositTracking: React.FC<DepositTrackingProps> = ({ db, isAdmin, m
       memberId: req.memberId,
       month: req.month,
       amount: req.amount,
-      notifyMethod: 'whatsapp'
     };
 
     const newLog: AuditLog = {
@@ -94,6 +125,27 @@ export const DepositTracking: React.FC<DepositTrackingProps> = ({ db, isAdmin, m
       savingsLogs: [...prev.savingsLogs, newSavingsLog],
       auditLogs: [...prev.auditLogs, newLog]
     }));
+
+    // Send email
+    const member = db.members.find(m => m.id === req.memberId);
+    if (member && member.email) {
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+      if (serviceId && templateId && publicKey) {
+        emailjs.send(
+          serviceId,
+          templateId,
+          {
+            to_name: member.name,
+            to_email: member.email,
+            month_label: monthNumToLabel(req.month),
+            amount: fmt(req.amount),
+          },
+          publicKey
+        ).catch(err => console.error('Failed to send email:', err));
+      }
+    }
 
     toast('Deposit approved!');
   };
@@ -324,38 +376,45 @@ export const DepositTracking: React.FC<DepositTrackingProps> = ({ db, isAdmin, m
                         {req.status}
                       </span>
 
-                      {/* Delete button for ALL statuses with confirmation */}
-                      {confirmDeleteId === req.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] text-[var(--text3)]">Delete?</span>
-                          <button
-                            onClick={() => { handleDelete(req.id); setConfirmDeleteId(null); }}
-                            className="px-2.5 py-1 bg-red-500 text-white text-[11px] font-bold rounded-lg hover:bg-red-600 transition-colors"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="px-2.5 py-1 bg-[var(--bg3)] text-[var(--text2)] text-[11px] font-bold rounded-lg border border-[var(--border)] hover:bg-[var(--bg4)] transition-colors"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmDeleteId(req.id)}
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                          title="Delete Request"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
+                    <button
+                      onClick={() => setConfirmDeleteId(req.id)}
+                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      title="Delete Request"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                     </div>
                   </div>
                 ))
               )}
             </div>
           </div>
+        </div>
+      )}
+      <ConfirmModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Deposit Request"
+        message="Are you sure you want to delete this deposit request? This action cannot be undone."
+        onConfirm={() => { confirmDeleteId && handleDelete(confirmDeleteId); setConfirmDeleteId(null); }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
+      {duplicateMsg && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[var(--card-bg)] p-8 rounded-2xl border border-[var(--line)] w-full max-w-md shadow-2xl text-center"
+          >
+            <div className="text-[40px] mb-4">⚠️</div>
+            <h3 className="font-serif text-[18px] font-bold text-[var(--text)] mb-3">Already Submitted</h3>
+            <p className="text-[14px] text-[var(--text2)] mb-6 leading-relaxed">{duplicateMsg}</p>
+            <button 
+              onClick={() => setDuplicateMsg(null)}
+              className="btn btn-primary px-8"
+            >
+              Got it
+            </button>
+          </motion.div>
         </div>
       )}
     </div>

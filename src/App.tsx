@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Dashboard } from './components/Dashboard';
@@ -22,6 +23,7 @@ import { db, auth } from './firebase';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { MessageSquare } from 'lucide-react';
+import { ConfirmModal } from './components/ConfirmModal';
 
 const INITIAL_DATA: AppData = {
   unitValue: 1500,
@@ -41,9 +43,14 @@ const INITIAL_DATA: AppData = {
   nextDepositId: 1,
 };
 
+const REAL_CURRENT_MONTH = (new Date().getFullYear() - 2024) * 12 + new Date().getMonth() + 1;
+
+INITIAL_DATA.currentMonth = REAL_CURRENT_MONTH;
+
 export default function App() {
   const [dbData, setDbData] = useState<AppData>(INITIAL_DATA);
   const [page, setPage] = useState('dashboard');
+  const [memberTab, setMemberTab] = useState<'overview' | 'investments' | 'source' | 'expenses'>('overview');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMemberLoggedIn, setIsMemberLoggedIn] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
@@ -57,6 +64,8 @@ export default function App() {
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const dbDataRef = useRef<AppData>(dbData);
 
   useEffect(() => {
@@ -124,7 +133,7 @@ export default function App() {
         setDbData(prev => ({
           ...prev,
           unitValue: config.unitValue ?? 1500,
-          currentMonth: config.currentMonth ?? 1,
+          currentMonth: config.currentMonth ? Math.max(config.currentMonth, REAL_CURRENT_MONTH) : REAL_CURRENT_MONTH,
           nextMemberId: config.nextMemberId ?? 1,
           nextInvId: config.nextInvId ?? 1,
           nextExpId: config.nextExpId ?? 1,
@@ -171,6 +180,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(false);
     setIsAdmin(false);
     setIsMemberLoggedIn(false);
     setIsGuest(false);
@@ -299,62 +309,11 @@ export default function App() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      toast('Logged in with Google');
-      setIsAdmin(true);
-    } catch (err) {
-      console.error(err);
-      toast('Google Login failed');
-    }
-  };
-
-  const seedData = async () => {
-    const initialMembers: Member[] = [
-      { id: 1, name: 'Karim', units: 1, joinMonth: 1, phone: '' },
-      { id: 2, name: 'Rahim', units: 1, joinMonth: 1, phone: '' },
-      { id: 3, name: 'Salam', units: 1, joinMonth: 1, phone: '' },
-      { id: 4, name: 'Hasan', units: 1, joinMonth: 1, phone: '' },
-      { id: 5, name: 'Nabil', units: 1, joinMonth: 1, phone: '' },
-      { id: 6, name: 'Arif',  units: 1, joinMonth: 1, phone: '' },
-      { id: 7, name: 'Rubel', units: 2, joinMonth: 1, phone: '' },
-      { id: 8, name: 'Milon', units: 2, joinMonth: 1, phone: '' },
-      { id: 9, name: 'Jahid', units: 1, joinMonth: 7, phone: '' },
-    ];
-
-    const businessA: Investment = {
-      id: 'inv-1',
-      name: 'Business A',
-      month: 1,
-      rate: 3,
-      sources: [
-        { type: 'saving', memberId: 1, amount: 9000 },
-        { type: 'saving', memberId: 2, amount: 9000 },
-        { type: 'saving', memberId: 3, amount: 9000 },
-        { type: 'saving', memberId: 4, amount: 9000 },
-        { type: 'saving', memberId: 5, amount: 9000 },
-        { type: 'saving', memberId: 6, amount: 9000 },
-        { type: 'saving', memberId: 7, amount: 18000 },
-        { type: 'saving', memberId: 8, amount: 18000 },
-      ]
-    };
-
-    await updateDb(prev => ({
-      ...prev,
-      members: initialMembers,
-      investments: [businessA],
-      nextMemberId: 10,
-      nextInvId: 2,
-    }));
-    toast('Data seeded successfully');
-  };
 
   const renderPage = () => {
     switch (page) {
       case 'dashboard':
-        return <Dashboard db={dbData} isAdmin={isAdmin} isMemberLoggedIn={isMemberLoggedIn} isGuest={isGuest} memberId={selectedMemberId} />;
+        return <Dashboard db={dbData} isAdmin={isAdmin} isMemberLoggedIn={isMemberLoggedIn} isGuest={isGuest} memberId={selectedMemberId} setPage={setPage} setMemberTab={setMemberTab} />;
       case 'members':
         return (
           <MemberView
@@ -362,6 +321,7 @@ export default function App() {
             selectedMemberId={selectedMemberId || dbData.members[0]?.id || 0}
             setSelectedMemberId={setSelectedMemberId}
             isAdmin={isAdmin}
+            initialTab={memberTab}
           />
         );
       case 'investments':
@@ -379,13 +339,13 @@ export default function App() {
       case 'log':
         return <TxLog db={dbData} setDb={updateDb} toast={toast} />;
       case 'analytics':
-        return <Analytics db={dbData} isAdmin={isAdmin} />;
+        return <Analytics db={dbData} isAdmin={isAdmin} isGuest={isGuest} />;
       case 'report':
         return <MonthlyReport db={dbData} toast={toast} isAdmin={isAdmin} />;
       case 'deposits':
         return <DepositTracking db={dbData} onUpdate={updateDb} toast={toast} isAdmin={isAdmin} memberId={selectedMemberId} />;
       case 'setup':
-        return <Setup db={dbData} setDb={updateDb} toast={toast} onSeed={seedData} />;
+        return <Setup db={dbData} setDb={updateDb} toast={toast} />;
       default:
         return <Dashboard db={dbData} isAdmin={isAdmin} isMemberLoggedIn={isMemberLoggedIn} isGuest={isGuest} memberId={selectedMemberId} />;
     }
@@ -436,21 +396,6 @@ export default function App() {
                 onClick={handleAdminLogin}
               >
                 Login as Admin
-              </button>
-              <div className="relative py-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[var(--line)]"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-[var(--card-bg)] px-2 text-[var(--text3)]">Or</span>
-                </div>
-              </div>
-              <button 
-                onClick={handleGoogleLogin}
-                className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors border border-gray-300"
-              >
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-                Sign in with Google
               </button>
               <div className="relative py-4">
                 <div className="absolute inset-0 flex items-center">
@@ -556,11 +501,13 @@ export default function App() {
         isMemberLoggedIn={isMemberLoggedIn}
         isGuest={isGuest}
         db={dbData}
-        onLogout={handleLogout}
+        onLogout={() => setShowLogoutConfirm(true)}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
       />
-      <div className={`${isCollapsed ? 'md:ml-[70px]' : 'md:ml-[220px]'} ml-0 pt-[54px] md:pt-0 flex-1 min-h-screen relative transition-all duration-300`}>
+      <div className={`${isCollapsed ? 'md:ml-[70px]' : 'md:ml-[220px]'} ml-0 pt-12 md:pt-0 flex-1 min-h-screen relative transition-all duration-300`}>
         <Topbar 
           page={page} 
           setPage={setPage}
@@ -568,6 +515,7 @@ export default function App() {
           isMemberLoggedIn={isMemberLoggedIn}
           isGuest={isGuest}
           db={dbData} 
+          selectedMemberId={selectedMemberId}
           onAdminClick={() => {
             if (isAdmin) return;
             const pass = prompt('Enter Admin Password:');
@@ -580,10 +528,22 @@ export default function App() {
               toast('Incorrect password!');
             }
           }}
-          onLogout={handleLogout}
+          onLogout={() => setShowLogoutConfirm(true)}
+          onMenuClick={() => setMobileOpen(true)}
         />
         <ErrorBoundary>
-          {renderPage()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={page}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="w-full min-h-full"
+            >
+              {renderPage()}
+            </motion.div>
+          </AnimatePresence>
         </ErrorBoundary>
         <Toast msg={toastMsg} onDone={() => setToastMsg(null)} />
       
@@ -606,6 +566,14 @@ export default function App() {
           onClose={() => setIsAIChatOpen(false)} 
         />
       </div>
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        title="Logout"
+        message="Are you sure you want to log out?"
+        confirmText="Log out"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 }

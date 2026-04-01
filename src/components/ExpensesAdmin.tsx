@@ -7,6 +7,7 @@ import {
   f2,
   monthNumToLabel,
   totalExpenses,
+  memberExpenseShare,
   activeMembersAt,
   initials,
 } from '../utils';
@@ -97,19 +98,6 @@ export const ExpensesAdmin: React.FC<ExpensesAdminProps> = ({
 
   const totalExp = totalExpenses(expenses);
   
-  // Calculate expense shares based on member join dates
-  const memberExpenseShares: Record<number, number> = {};
-  expenses.forEach((e) => {
-    const activeAtMonth = activeMembersAt(members, e.month);
-    const totalUnitsAtMonth = activeAtMonth.reduce((s, m) => s + m.units, 0);
-    if (totalUnitsAtMonth > 0) {
-      activeAtMonth.forEach((m) => {
-        const share = (e.amount * m.units) / totalUnitsAtMonth;
-        memberExpenseShares[m.id] = (memberExpenseShares[m.id] || 0) + share;
-      });
-    }
-  });
-
   const activeMems = activeMembersAt(members, currentMonth);
 
   const catTotals: Record<string, number> = {};
@@ -221,8 +209,9 @@ export const ExpensesAdmin: React.FC<ExpensesAdminProps> = ({
         <div className="text-[13px] font-medium text-[var(--text2)] mb-3.5 uppercase tracking-[0.5px]">
           Per-Member Expense Share
         </div>
-        <div className="text-[13px] text-[var(--text3)] mb-2.5">
-          Expenses are split by units for the months each member was active. Total expenses: {fmt(totalExp)} tk
+        <div className="text-[13px] text-[var(--text3)] mb-2.5 flex flex-col gap-1">
+          <p>Expenses are split by units for the months each member was active. Total expenses: {fmt(totalExp)} tk</p>
+          <p className="text-[11px] italic text-[var(--rose)]">Note: 'Special' category expenses are split among ALL current members, regardless of join date.</p>
         </div>
         <div className="tbl-wrap">
           <table className="w-full">
@@ -236,7 +225,7 @@ export const ExpensesAdmin: React.FC<ExpensesAdminProps> = ({
             </thead>
             <tbody>
               {members.map((m) => {
-                const exp = memberExpenseShares[m.id] || 0;
+                const exp = memberExpenseShare(m.id, expenses, members);
                 const share = totalExp > 0 ? exp / totalExp : 0;
                 return (
                   <tr key={m.id}>

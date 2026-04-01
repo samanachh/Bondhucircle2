@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { LogIn, LogOut, ShieldCheck, Search, User, TrendingUp, Receipt } from 'lucide-react';
+import React from 'react';
+import { Menu, User, Shield, UserCircle, LogOut, ChevronRight } from 'lucide-react';
 import { AppData } from '../types';
-import { monthNumToLabel } from '../utils';
 
 interface TopbarProps {
   page: string;
@@ -10,154 +9,107 @@ interface TopbarProps {
   isMemberLoggedIn: boolean;
   isGuest: boolean;
   db: AppData;
+  selectedMemberId: number | null;
   onAdminClick: () => void;
   onLogout: () => void;
+  onMenuClick: () => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ page, setPage, isAdmin, isMemberLoggedIn, isGuest, db, onAdminClick, onLogout }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowResults(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const results: any[] = [];
-
-    // Search Members (array)
-    (db.members || []).forEach((m: any) => {
-      if (m.name?.toLowerCase().includes(query)) {
-        results.push({ id: m.id, type: 'member', name: m.name, icon: User, page: 'all-members' });
-      }
-    });
-
-    // Search Investments (array)
-    (db.investments || []).forEach((inv: any) => {
-      if (inv.name?.toLowerCase().includes(query)) {
-        results.push({ id: inv.id, type: 'investment', name: inv.name, icon: TrendingUp, page: 'investments' });
-      }
-    });
-
-    // Search Expenses (array)
-    (db.expenses || []).forEach((exp: any) => {
-      if (exp.category?.toLowerCase().includes(query)) {
-        results.push({ id: exp.id, type: 'expense', name: exp.category, icon: Receipt, page: 'expenses' });
-      }
-    });
-
-    setSearchResults(results.slice(0, 8));
-    setShowResults(true);
-  }, [searchQuery, db]);
-  const labels: Record<string, string> = {
-    dashboard: 'Dashboard',
-    members: 'My Profile',
-    investments: 'Investments',
-    'add-profit': 'Profits',
-    savings: 'Monthly Savings',
-    expenses: 'Expenses',
-    'all-members': 'All Members',
-    deposits: isAdmin ? 'Approve Deposits' : 'Deposit Proof',
-    log: 'Transaction Log',
-    report: 'Monthly Report',
-    analytics: 'Analytics',
-    setup: 'Setup',
-  };
+export const Topbar: React.FC<TopbarProps> = ({ 
+  page,
+  setPage,
+  isAdmin, 
+  isMemberLoggedIn, 
+  isGuest, 
+  db,
+  selectedMemberId,
+  onAdminClick,
+  onLogout,
+  onMenuClick
+}) => {
+  const userName = db.members.find(m => m.id === selectedMemberId)?.name;
 
   return (
-    <div className="h-14 md:h-16 bg-[var(--bg2)]/80 backdrop-blur-md border-b border-[var(--border)] flex items-center px-4 md:px-8 justify-between sticky top-0 z-50">
-      <div className="flex flex-col">
-        <div className="font-serif text-[14px] md:text-[16px] font-semibold text-[var(--text)] uppercase tracking-tight">{labels[page] || page}</div>
-        <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider font-medium hidden md:block">
-          {monthNumToLabel(db.currentMonth)}
+    <>
+      {/* Mobile Topbar */}
+      <div className="fixed top-0 left-0 right-0 h-12 bg-[var(--bg2)] border-b border-[var(--border)] flex items-center justify-between px-4 z-40 md:hidden">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onMenuClick}
+            className="p-1.5 -ml-1 rounded-lg text-[var(--text2)] hover:bg-[var(--bg3)]"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-1.5">
+            <div className="font-serif font-bold text-[16px] text-[var(--text)]">Bondhu Circle</div>
+            <div className="flex items-center text-[var(--text3)]">
+              <ChevronRight size={14} />
+              <span className="text-[10px] font-medium capitalize ml-1">{page.replace('-', ' ')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isAdmin ? (
+            <div className="flex items-center gap-1 bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full border border-amber-500/20">
+              <Shield size={10} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Admin</span>
+            </div>
+          ) : isMemberLoggedIn ? (
+            <div className="flex items-center gap-1 bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full border border-blue-500/20">
+              <User size={10} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Member</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 bg-gray-500/10 text-gray-400 px-2 py-0.5 rounded-full border border-gray-500/20">
+              <UserCircle size={10} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Guest</span>
+            </div>
+          )}
         </div>
       </div>
-      
-      <div className="flex items-center gap-4">
-        {isAdmin && (
-          <div className="relative hidden md:block" ref={searchRef}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text3)]" size={16} />
-              <input
-                type="text"
-                placeholder="Search members, investments..."
-                className="w-64 bg-[var(--bg3)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2 text-xs focus:w-80 transition-all duration-300"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchQuery && setShowResults(true)}
-              />
+
+      {/* Desktop Topbar */}
+      <div className="hidden md:flex h-14 bg-[var(--bg2)] border-b border-[var(--border)] items-center justify-between px-6 sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[15px] font-semibold text-[var(--text)] capitalize">
+            {page.replace('-', ' ')}
+          </h2>
+          {selectedMemberId && page === 'member-view' && (
+            <div className="flex items-center gap-2 text-[var(--text3)] text-xs">
+              <ChevronRight size={14} />
+              <span>{userName}</span>
             </div>
-            
-            {showResults && searchResults.length > 0 && (
-              <div className="absolute top-full right-0 mt-2 w-80 bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2">
-                <div className="p-2 border-b border-[var(--border)] text-[10px] uppercase tracking-wider text-[var(--text3)] font-bold">
-                  Search Results
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {searchResults.map((res, idx) => (
-                    <button
-                      key={`${res.type}-${res.id}-${idx}`}
-                      className="w-full flex items-center gap-3 p-3 hover:bg-[var(--bg3)] transition-colors text-left border-none"
-                      onClick={() => {
-                        setPage(res.page);
-                        setSearchQuery('');
-                        setShowResults(false);
-                      }}
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[var(--bg3)] flex items-center justify-center text-[var(--accent)]">
-                        <res.icon size={16} />
-                      </div>
-                      <div>
-                        <div className="text-[13px] font-medium text-[var(--text)]">{res.name}</div>
-                        <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider">{res.type}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg3)] border border-[var(--border)]">
+            <div className={`w-2 h-2 rounded-full ${isAdmin ? 'bg-amber-500' : isMemberLoggedIn ? 'bg-blue-500' : 'bg-gray-400'}`} />
+            <span className="text-xs font-medium text-[var(--text2)]">
+              {isAdmin ? 'Admin' : isMemberLoggedIn ? 'Member' : 'Guest'}
+            </span>
           </div>
-        )}
-        
-        {isAdmin ? (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] text-[11px] font-bold uppercase tracking-wider">
-              <ShieldCheck size={14} />
-              Admin Mode
-            </div>
-          </div>
-        ) : isMemberLoggedIn ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue)]/10 border border-[var(--blue)]/20 text-[var(--blue)] text-[11px] font-bold uppercase tracking-wider">
-            Member View
-          </div>
-        ) : isGuest ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--text3)]/10 border border-[var(--text3)]/20 text-[var(--text3)] text-[11px] font-bold uppercase tracking-wider">
-            Guest Preview
-          </div>
-        ) : (
+
+          {!isAdmin && (
+            <button 
+              onClick={onAdminClick}
+              className="p-2 rounded-lg text-[var(--text3)] hover:text-[var(--text)] hover:bg-[var(--bg3)] transition-all"
+              title="Admin Mode"
+            >
+              <Shield size={18} />
+            </button>
+          )}
+
           <button 
-            onClick={onAdminClick}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--bg3)] hover:bg-[var(--bg4)] text-[var(--text)] text-[12px] font-medium transition-all border border-[var(--border)] shadow-sm"
+            onClick={onLogout}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-all text-xs font-medium"
           >
-            <LogIn size={14} className="text-[var(--accent)]" />
-            Admin Login
+            <LogOut size={16} />
+            <span>Logout</span>
           </button>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };

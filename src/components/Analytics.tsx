@@ -19,9 +19,10 @@ import { TrendingUp, Users, PieChart as PieIcon, BarChart3, ArrowUpRight, ArrowD
 interface AnalyticsProps {
   db: AppData;
   isAdmin: boolean;
+  isGuest?: boolean;
 }
 
-export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
+export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin, isGuest }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'investments' | 'members'>('overview');
 
   const months = useMemo(() => {
@@ -120,13 +121,13 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
   const COLORS = ['#FF6321', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
   return (
-    <div className="p-7 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-7 max-w-7xl mx-auto w-full overflow-x-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-serif font-bold text-[var(--text)]">Analytics</h1>
           <p className="text-[var(--text3)] text-sm mt-1">Visualizing growth and performance metrics</p>
         </div>
-        <div className="flex bg-[var(--bg2)] p-1 rounded-xl border border-[var(--border)]">
+        <div className="flex flex-wrap bg-[var(--bg2)] p-1 rounded-xl border border-[var(--border)]">
           <button 
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'overview' ? 'bg-[var(--bg4)] text-[var(--text)] shadow-sm' : 'text-[var(--text3)] hover:text-[var(--text)]'}`}
@@ -152,10 +153,11 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
 
       {activeTab === 'overview' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Savings Trend */}
+          {/* Savings Trend - hidden for guests */}
+          {!isGuest && (
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Monthly Savings: Confirmed vs Expected</h3>
-            <div className="h-[300px]">
+            <div className="h-[300px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={savingsData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
@@ -172,11 +174,12 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
               </ResponsiveContainer>
             </div>
           </div>
+          )}
 
           {/* Cumulative Profit */}
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Cumulative Profit Growth</h3>
-            <div className="h-[300px]">
+            <div className="h-[300px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={cumulativeProfitData}>
                   <defs>
@@ -200,7 +203,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
           {/* Profit vs Expenses */}
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Monthly Profit vs Expenses</h3>
-            <div className="h-[300px]">
+            <div className="h-[300px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={profitExpenseData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
@@ -220,7 +223,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
           {/* Expense Breakdown */}
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Expense Breakdown by Category</h3>
-            <div className="h-[300px] flex items-center">
+            <div className="h-[300px] flex items-center w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
@@ -249,7 +252,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ db, isAdmin }) => {
         <div className="space-y-6">
           <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--line)] shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text3)] mb-6">Principal vs Profit Comparison</h3>
-            <div className="h-[400px]">
+            <div className="h-[400px] w-full min-w-0 -ml-4 sm:ml-0">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={investmentData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--line)" />

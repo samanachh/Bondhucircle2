@@ -19,6 +19,8 @@ import {
   expectedSavingsForMonth,
   confirmedSavingsForMonth,
   getMemberBacklog,
+  profitInHand,
+  memberExpenseShare,
 } from '../utils';
 import { CAT_COLORS } from '../constants';
 
@@ -28,6 +30,8 @@ interface DashboardProps {
   isMemberLoggedIn: boolean;
   isGuest: boolean;
   memberId: number | null;
+  setPage?: (p: string) => void;
+  setMemberTab?: (t: 'overview' | 'investments' | 'source' | 'expenses') => void;
 }
 
 const AnimatedCounter: React.FC<{ value: number; duration?: number; prefix?: string; suffix?: string }> = ({ value, duration = 1200, prefix = '', suffix = '' }) => {
@@ -49,7 +53,15 @@ const AnimatedCounter: React.FC<{ value: number; duration?: number; prefix?: str
   return <span>{prefix}{fmt(count)}{suffix}</span>;
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLoggedIn, isGuest, memberId }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  db, 
+  isAdmin, 
+  isMemberLoggedIn, 
+  isGuest, 
+  memberId,
+  setPage,
+  setMemberTab
+}) => {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
 
@@ -80,6 +92,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
     .reduce((s, l) => s + l.amount, 0);
 
   const uninvestedMoneyVal = uninvestedMoney(db);
+  const profitInHandVal = profitInHand(db);
   const totalProfitReceivedVal = totalProfit;
   const expectedThisMonth = expectedSavingsForMonth(db, currentMonth);
   const confirmedThisMonth = confirmedSavingsForMonth(db, currentMonth);
@@ -91,11 +104,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
 
   const totalBacklog = backlogs.reduce((s, b) => s + b.backlog.reduce((ss, m) => ss + m.amount, 0), 0);
   const [showBacklog, setShowBacklog] = useState(false);
+  const [showInvestedModal, setShowInvestedModal] = useState(false);
 
   // Filter checklist for members
   const checklistMembers = isMemberLoggedIn && memberId 
     ? active.filter(m => m.id === memberId)
     : active;
+
+  const myExpenseShare = isMemberLoggedIn && memberId ? memberExpenseShare(memberId, expenses, members) : 0;
 
   const fetchAiInsight = async () => {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -118,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
       Number of Active Investments: ${investments.length}`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
       });
       setAiInsight(response.text || 'Keep growing together!');
@@ -175,9 +191,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-7 pb-[60px] max-w-[1200px]"
+      className="p-7 pb-[60px] max-w-[1400px] mx-auto"
     >
-      <div className="flex items-center justify-between mb-[24px]">
+      <div className="flex items-center justify-between mb-[32px]">
         <div className="flex-1">
           <div className="font-serif text-[28px] font-bold text-[var(--text)]">
             Dashboard {currentMonthName} {currentYear}
@@ -263,32 +279,69 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
         )}
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
-        <div className="metric-card border-l-4 border-l-[var(--blue)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
-          <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        <div className="metric-card border-l-4 border-l-[var(--blue)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
+          <div className="text-[11px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Uninvested Money
           </div>
-          <div className="font-serif text-[28px] text-[var(--text)] leading-none font-bold">
+          <div className="font-serif text-[32px] text-[var(--text)] leading-none font-bold">
             <AnimatedCounter value={uninvestedMoneyVal} />
           </div>
-          <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
+          <div className="text-[12px] text-[var(--text3)] mt-2 font-medium">
             Available in brokerage
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--accent)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
-          <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
+        {isAdmin && (
+          <div className="metric-card border-l-4 border-l-[var(--purple)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
+            <div className="text-[11px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
+              Profit in Hand
+            </div>
+            <div className="font-serif text-[32px] text-[var(--purple)] leading-none font-bold">
+              <AnimatedCounter value={profitInHandVal} />
+            </div>
+            <div className="text-[12px] text-[var(--text3)] mt-2 font-medium">
+              Uninvested profit pool
+            </div>
+          </div>
+        )}
+
+        <div 
+          className={`metric-card border-l-4 border-l-[var(--accent)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm ${isAdmin ? 'cursor-pointer hover:bg-[var(--bg3)] transition-colors' : ''}`}
+          onClick={() => isAdmin && setShowInvestedModal(true)}
+        >
+          <div className="text-[11px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Total Invested
           </div>
-          <div className="font-serif text-[28px] text-[var(--accent)] leading-none font-bold">
+          <div className="font-serif text-[32px] text-[var(--accent)] leading-none font-bold">
             <AnimatedCounter value={totalInvestedVal} />
           </div>
-          <div className="text-[11px] text-[var(--text3)] mt-2 font-medium">
-            Across {investments.length} active pools
+          <div className="text-[12px] text-[var(--text3)] mt-2 font-medium">
+            Across {investments.length} active pools {isAdmin && '(Click for details)'}
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--amber)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
+        <div 
+          className={`metric-card border-l-4 border-l-[var(--red)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm ${isMemberLoggedIn ? 'cursor-pointer hover:bg-[var(--bg3)]' : ''}`}
+          onClick={() => {
+            if (isMemberLoggedIn && setPage && setMemberTab) {
+              setMemberTab('expenses');
+              setPage('members');
+            }
+          }}
+        >
+          <div className="text-[11px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
+            {isMemberLoggedIn ? 'My Expenses' : 'Total Expenses'}
+          </div>
+          <div className="font-serif text-[32px] text-[var(--red)] leading-none font-bold">
+            <AnimatedCounter value={isMemberLoggedIn ? myExpenseShare : totalExp} />
+          </div>
+          <div className="text-[12px] text-[var(--text3)] mt-2 font-medium">
+            {isMemberLoggedIn ? 'Your share of costs (Click for details)' : `Across ${expenses.length} logs`}
+          </div>
+        </div>
+
+        <div className="metric-card border-l-4 border-l-[var(--amber)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
           <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Net Profit
           </div>
@@ -300,7 +353,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--purple)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
+        <div className="metric-card border-l-4 border-l-[var(--purple)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
           <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Total Profit Received
           </div>
@@ -312,7 +365,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--teal)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
+        <div className="metric-card border-l-4 border-l-[var(--teal)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
           <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Confirmed Savings
           </div>
@@ -324,7 +377,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--red)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
+        <div className="metric-card border-l-4 border-l-[var(--red)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
           <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Withdrawals
           </div>
@@ -336,7 +389,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--indigo)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
+        <div className="metric-card border-l-4 border-l-[var(--indigo)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
           <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Expected This Month
           </div>
@@ -348,7 +401,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
           </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-[var(--emerald)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm">
+        <div className="metric-card border-l-4 border-l-[var(--emerald)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm">
           <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
             Confirmed This Month
           </div>
@@ -362,7 +415,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
 
         {isAdmin && (
           <div 
-            className="metric-card border-l-4 border-l-[var(--rose)] bg-[var(--bg2)] p-5 rounded-2xl shadow-sm cursor-pointer hover:bg-[var(--bg)] transition-colors"
+            className="metric-card border-l-4 border-l-[var(--rose)] bg-[var(--bg2)] p-6 rounded-2xl shadow-sm cursor-pointer hover:bg-[var(--bg3)] transition-colors"
             onClick={() => setShowBacklog(true)}
           >
             <div className="text-[10px] text-[var(--text3)] uppercase tracking-[1.5px] mb-3 font-bold">
@@ -580,6 +633,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, isAdmin, isMemberLogge
                 ))}
               </div>
             )}
+          </motion.div>
+        </div>
+      )}
+      {showInvestedModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[var(--card-bg)] p-8 rounded-2xl border border-[var(--line)] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-serif font-bold">Investment Breakdown</h2>
+              <button 
+                onClick={() => setShowInvestedModal(false)}
+                className="text-[var(--text3)] hover:text-[var(--text)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--blue)] mb-4 border-b border-[var(--border)] pb-2">Invested from Savings</h3>
+                <div className="space-y-3">
+                  {investments.map(inv => {
+                    const fromSavings = inv.sources.filter(s => s.type === 'saving').reduce((sum, s) => sum + s.amount, 0);
+                    if (fromSavings === 0) return null;
+                    return (
+                      <div key={inv.id} className="flex justify-between items-center bg-[var(--bg)] p-3 rounded-xl">
+                        <span className="font-medium">{inv.name}</span>
+                        <span className="font-bold">{fmt(fromSavings)} tk</span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between items-center pt-2 font-bold text-lg border-t border-[var(--border)] mt-2">
+                    <span>Total</span>
+                    <span>{fmt(investments.reduce((s, i) => s + i.sources.filter(src => src.type === 'saving').reduce((sum, src) => sum + src.amount, 0), 0))} tk</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold text-[var(--accent)] mb-4 border-b border-[var(--border)] pb-2">Invested from Profit</h3>
+                <div className="space-y-3">
+                  {investments.map(inv => {
+                    const fromProfit = inv.sources.filter(s => s.type === 'profit').reduce((sum, s) => sum + s.amount, 0);
+                    if (fromProfit === 0) return null;
+                    return (
+                      <div key={inv.id} className="flex justify-between items-center bg-[var(--bg)] p-3 rounded-xl">
+                        <span className="font-medium">{inv.name}</span>
+                        <span className="font-bold">{fmt(fromProfit)} tk</span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between items-center pt-2 font-bold text-lg border-t border-[var(--border)] mt-2">
+                    <span>Total</span>
+                    <span>{fmt(investments.reduce((s, i) => s + i.sources.filter(src => src.type === 'profit').reduce((sum, src) => sum + src.amount, 0), 0))} tk</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       )}

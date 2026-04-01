@@ -1,7 +1,7 @@
 import { AppData, Investment, Member, ProfitLog, Expense, SavingsLog, Withdrawal } from './types';
 import { MONTHS, START_YEAR } from './constants';
 
-export const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+export const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const f2 = (n: number) => parseFloat(n.toString() || '0').toFixed(2);
 
@@ -83,7 +83,15 @@ export const uninvestedMoney = (db: AppData) => {
   const nonInvWth = tw - investmentWth;
   const principalInvested = db.investments.reduce((s, i) => s + totalForInv(i), 0);
   
-  return Math.max(0, ts + tp - te - principalInvested - nonInvWth);
+  return ts + tp - te - principalInvested - nonInvWth;
+};
+
+export const profitInHand = (db: AppData) => {
+  const totalP = totalProfit(db.profitLogs);
+  const totalPInvested = db.investments.reduce((s, i) => 
+    s + i.sources.filter(src => src.type === 'profit').reduce((sum, src) => sum + src.amount, 0), 0);
+  const totalPWithdrawn = db.withdrawals.filter(w => w.sourceType === 'profit').reduce((s, w) => s + w.amount, 0);
+  return Math.max(0, totalP - totalPInvested - totalPWithdrawn);
 };
 
 export const memberWithdrawals = (memberId: number, withdrawals: Withdrawal[]) =>
@@ -94,13 +102,19 @@ export const memberExpenseShare = (
   expenses: Expense[],
   members: Member[]
 ) => {
-  // Only divide expenses among members active at the time of the expense
   return expenses.reduce((total, exp) => {
-    const activeMems = activeMembersAt(members, exp.month);
-    const totalUnits = activeMems.reduce((s, m) => s + m.units, 0);
-    const m = activeMems.find((x) => x.id === memberId);
-    if (!m || totalUnits === 0) return total;
-    return total + exp.amount * (m.units / totalUnits);
+    if (exp.category.toLowerCase() === 'special') {
+      const totalUnits = members.reduce((s, m) => s + m.units, 0);
+      const m = members.find((x) => x.id === memberId);
+      if (!m || totalUnits === 0) return total;
+      return total + exp.amount * (m.units / totalUnits);
+    } else {
+      const activeMems = activeMembersAt(members, exp.month);
+      const totalUnits = activeMems.reduce((s, m) => s + m.units, 0);
+      const m = activeMems.find((x) => x.id === memberId);
+      if (!m || totalUnits === 0) return total;
+      return total + exp.amount * (m.units / totalUnits);
+    }
   }, 0);
 };
 
@@ -150,8 +164,12 @@ export const getMemberContributionToInv = (
   memberId: number,
   inv: Investment,
   investments: Investment[],
-  withdrawals: Withdrawal[] = []
+  withdrawals: Withdrawal[] = [],
+  visited: Set<string> = new Set()
 ): number => {
+  if (visited.has(inv.id)) return 0; // Prevent infinite recursion cycle
+  visited.add(inv.id);
+
   let total = 0;
   inv.sources.forEach((src) => {
     if (src.memberId === memberId && src.type === 'saving') {
@@ -161,7 +179,7 @@ export const getMemberContributionToInv = (
       if (refInv) {
         const refTotal = totalForInv(refInv);
         if (refTotal > 0) {
-          const memberShareInRef = getMemberContributionToInv(memberId, refInv, investments, withdrawals) / refTotal;
+          const memberShareInRef = getMemberContributionToInv(memberId, refInv, investments, withdrawals, new Set(visited)) / refTotal;
           total += src.amount * memberShareInRef;
         }
       }

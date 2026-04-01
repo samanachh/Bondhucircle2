@@ -6,6 +6,7 @@ export const EXPENSE_CATS = [
   'Miscellaneous',
   'Legal',
   'Utility',
+  'Special',
 ];
 
 export const CAT_COLORS: Record<string, string> = {
@@ -16,6 +17,7 @@ export const CAT_COLORS: Record<string, string> = {
   'Miscellaneous': '#94a3b8',
   'Legal': '#f87171',
   'Utility': '#2dd4bf',
+  'Special': '#fb7185',
 };
 
 export const MONTHS = [

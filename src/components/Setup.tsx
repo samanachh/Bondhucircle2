@@ -5,23 +5,34 @@ import { AppData, Member } from '../types';
 import { fmt, monthNumToLabel, initials } from '../utils';
 import { AV_CLASSES } from '../constants';
 import { MonthPicker } from './MonthPicker';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SetupProps {
   db: AppData;
   setDb: React.Dispatch<React.SetStateAction<AppData>>;
   toast: (msg: string) => void;
-  onSeed: () => void;
 }
 
-export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
+export const Setup: React.FC<SetupProps> = ({ db, setDb, toast }) => {
   const { members, unitValue, currentMonth } = db;
   const [name, setName] = useState('');
   const [units, setUnits] = useState(1);
   const [joinMonth, setJoinMonth] = useState(1);
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [uv, setUv] = useState(unitValue.toString());
   const [cm, setCm] = useState(currentMonth);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  const removeMember = (id: number) => {
+    setDb((p) => ({
+      ...p,
+      members: p.members.filter((x) => x.id !== id),
+    }));
+    setConfirmDeleteId(null);
+    toast('Member removed');
+  };
 
   const addMember = () => {
     if (!name.trim()) return toast('Enter a name');
@@ -31,6 +42,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
       units: Number(units),
       joinMonth: Number(joinMonth),
       phone: phone.trim(),
+      email: email.trim(),
       pin: pin.trim() || '0000',
     };
     setDb((p) => ({
@@ -40,6 +52,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
     }));
     setName('');
     setPhone('');
+    setEmail('');
     setPin('');
     toast(`${name} added`);
   };
@@ -79,12 +92,6 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
           </div>
           <button className="btn btn-primary" onClick={saveSettings}>
             Save
-          </button>
-          <button 
-            className="btn bg-amber-600/20 text-amber-500 border border-amber-600/30 hover:bg-amber-600/30 ml-auto"
-            onClick={onSeed}
-          >
-            Seed Initial Data
           </button>
         </div>
         <div className="text-[12px] text-[var(--text3)] mt-3">
@@ -142,6 +149,17 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] text-[var(--text3)] uppercase tracking-[0.5px]">
+              Email
+            </label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="member@email.com"
+              className="w-[150px]"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] text-[var(--text3)] uppercase tracking-[0.5px]">
               PIN
             </label>
             <input
@@ -171,6 +189,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
                 <th>Monthly</th>
                 <th>Joined</th>
                 <th>Investor ID</th>
+                <th>Email</th>
                 <th>PIN</th>
                 <th></th>
               </tr>
@@ -210,6 +229,21 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
                   </td>
                   <td>
                     <input
+                      value={m.email || ''}
+                      onChange={(e) =>
+                        setDb((p) => ({
+                          ...p,
+                          members: p.members.map((x) =>
+                            x.id === m.id ? { ...x, email: e.target.value } : x
+                          ),
+                        }))
+                      }
+                      placeholder="Email"
+                      className="w-[130px] py-1 px-2 text-[12px]"
+                    />
+                  </td>
+                  <td>
+                    <input
                       value={m.pin || ''}
                       onChange={(e) =>
                         setDb((p) => ({
@@ -227,12 +261,7 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
                   <td>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() =>
-                        setDb((p) => ({
-                          ...p,
-                          members: p.members.filter((x) => x.id !== m.id),
-                        }))
-                      }
+                      onClick={() => setConfirmDeleteId(m.id)}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -243,6 +272,13 @@ export const Setup: React.FC<SetupProps> = ({ db, setDb, toast, onSeed }) => {
           </table>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Member"
+        message="Are you sure you want to completely delete this member? This action cannot be undone."
+        onConfirm={() => confirmDeleteId !== null && removeMember(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </motion.div>
   );
 };

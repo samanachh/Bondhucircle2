@@ -10,6 +10,8 @@ import {
 } from '../utils';
 import { AV_CLASSES } from '../constants';
 import { MonthPicker } from './MonthPicker';
+import { ConfirmModal } from './ConfirmModal';
+import emailjs from '@emailjs/browser';
 
 interface MonthlySavingsAdminProps {
   db: AppData;
@@ -25,10 +27,6 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
   const { members, savingsLogs, unitValue, currentMonth } = db;
   const [month, setMonth] = useState(currentMonth);
   const [checkedIds, setCheckedIds] = useState<Record<number, boolean>>({});
-  const [notifyMethod, setNotifyMethod] = useState<'whatsapp' | 'sms' | 'email'>(
-    'whatsapp'
-  );
-
   const activeMems = activeMembersAt(members, month);
 
   const toggleCheck = (id: number) =>
@@ -50,33 +48,36 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
       memberId: m.id,
       month: Number(month),
       amount: m.units * unitValue,
-      notifyMethod,
     }));
     setDb((p) => ({ ...p, savingsLogs: [...p.savingsLogs, ...entries] }));
 
-    if (notifyMethod === 'whatsapp') {
-      toLog.forEach((m, i) => {
-        const phone = m.phone ? m.phone.replace(/\D/g, '') : null;
-        const msg = encodeURIComponent(
-          `Hi ${m.name}! Your savings of ${fmt(
-            m.units * unitValue
-          )} tk for ${monthNumToLabel(
-            Number(month)
-          )} have been logged. Thank you! — Bondhu Circle`
-        );
-        if (phone) {
-          setTimeout(() => {
-            window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
-          }, i * 600);
+    // Send emails
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    if (serviceId && templateId && publicKey) {
+      toLog.forEach((m) => {
+        if (m.email) {
+          emailjs.send(
+            serviceId,
+            templateId,
+            {
+              to_name: m.name,
+              to_email: m.email,
+              month_label: monthNumToLabel(Number(month)),
+              amount: fmt(m.units * unitValue),
+            },
+            publicKey
+          ).catch(err => console.error('Failed to send email:', err));
         }
       });
+      toast(`Savings logged & notifications sent!`);
+    } else {
+      toast(`Savings logged. (Add EmailJS keys in .env.local for automatic emails)`);
     }
+
     setCheckedIds({});
-    toast(
-      `Savings logged for ${toLog.length} member${
-        toLog.length > 1 ? 's' : ''
-      } · ${monthNumToLabel(month)}`
-    );
   };
 
   const [expandedMonths, setExpandedMonths] = useState<Record<number, boolean>>({});
@@ -104,21 +105,14 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
     .map(Number)
     .sort((a, b) => b - a);
 
-  const notifyLabel = { whatsapp: 'WhatsApp', sms: 'SMS', email: 'Email' };
-  const notifyColor = {
-    whatsapp: 'var(--accent)',
-    sms: 'var(--blue)',
-    email: 'var(--amber)',
-  };
-
-  return (
+    return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       className="p-7 pb-[60px] max-w-[1100px]"
     >
       <div className="card mb-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <div className="text-[13px] font-medium text-[var(--text2)] uppercase tracking-[0.5px]">
             Savings Checklist: {monthNumToLabel(month)}
           </div>
@@ -169,24 +163,8 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
             </label>
             <MonthPicker value={month} onChange={setMonth} />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] text-[var(--text3)] uppercase tracking-[0.5px] font-bold">
-              Notify via
-            </label>
-            <select
-              value={notifyMethod}
-              onChange={(e) =>
-                setNotifyMethod(e.target.value as 'whatsapp' | 'sms' | 'email')
-              }
-              className="min-w-[200px]"
-            >
-              <option value="whatsapp">WhatsApp (opens chat)</option>
-              <option value="sms">SMS / Text</option>
-              <option value="email">Email</option>
-            </select>
-          </div>
         </div>
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3">
           <div className="text-[12px] text-[var(--text3)] uppercase tracking-[0.5px] font-bold">
             Members
           </div>
@@ -241,9 +219,7 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
             <Plus size={16} /> Log &amp; notify
           </button>
           <div className="text-[12px] text-[var(--text3)] italic">
-            {notifyMethod === 'whatsapp'
-              ? 'Opens WhatsApp for each member with phone number'
-              : `Will log with ${notifyLabel[notifyMethod]} method`}
+            Automated confirmation emails will be sent out via EmailJS if configured.
           </div>
         </div>
       </div>
@@ -269,7 +245,7 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
             return (
               <div key={mn} className="border border-[var(--border)] rounded-xl overflow-hidden bg-[var(--bg3)]">
                 <div 
-                  className="flex justify-between items-center p-4 cursor-pointer hover:bg-[var(--bg2)] transition-colors"
+                  className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-4 gap-3 cursor-pointer hover:bg-[var(--bg2)] transition-colors"
                   onClick={() => toggleMonth(mn)}
                 >
                   <div className="flex items-center gap-3">
@@ -303,7 +279,6 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
                           <tr>
                             <th>Member</th>
                             <th>Amount</th>
-                            <th>Notified via</th>
                             <th className="text-right">Action</th>
                           </tr>
                         </thead>
@@ -327,48 +302,13 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
                                 <td className="font-bold text-[var(--blue)]">
                                   {fmt(l.amount)} tk
                                 </td>
-                                <td>
-                                  <span
-                                    className="badge"
-                                    style={{
-                                      background: `rgba(${
-                                        l.notifyMethod === 'whatsapp'
-                                          ? '74,222,128'
-                                          : l.notifyMethod === 'sms'
-                                          ? '96,165,250'
-                                          : '251,191,36'
-                                      },0.12)`,
-                                      color:
-                                        notifyColor[l.notifyMethod] || 'var(--text2)',
-                                    }}
-                                  >
-                                    {notifyLabel[l.notifyMethod] || l.notifyMethod}
-                                  </span>
-                                </td>
                                 <td className="text-right">
-                                  {confirmDeleteId === l.id ? (
-                                    <div className="flex justify-end gap-1.5">
-                                      <button
-                                        className="px-2 py-1 bg-red-500 text-white text-[10px] rounded hover:bg-red-600 transition-colors"
-                                        onClick={() => deleteLog(l.id)}
-                                      >
-                                        Confirm
-                                      </button>
-                                      <button
-                                        className="px-2 py-1 bg-[var(--bg3)] text-[var(--text2)] text-[10px] rounded hover:bg-[var(--border)] transition-colors"
-                                        onClick={() => setConfirmDeleteId(null)}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  ) : (
                                     <button
                                       className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                       onClick={() => setConfirmDeleteId(l.id)}
                                     >
                                       <Trash2 size={16} />
                                     </button>
-                                  )}
                                 </td>
                               </tr>
                             );
@@ -383,6 +323,13 @@ export const MonthlySavingsAdmin: React.FC<MonthlySavingsAdminProps> = ({
           })}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Savings Log"
+        message="Are you sure you want to delete this savings record?"
+        onConfirm={() => confirmDeleteId && deleteLog(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </motion.div>
   );
 };

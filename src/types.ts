@@ -7,6 +7,7 @@ export type Member = {
   joinMonth: number;
   phone: string;
   pin?: string; // 4-digit PIN for member login
+  email?: string;
 };
 
 export type InvestmentSource = {
@@ -51,7 +52,6 @@ export type SavingsLog = {
   memberId: number;
   month: number;
   amount: number;
-  notifyMethod: 'whatsapp' | 'sms' | 'email';
 };
 
 export type Withdrawal = {

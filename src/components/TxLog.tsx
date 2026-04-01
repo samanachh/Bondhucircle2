@@ -51,9 +51,9 @@ export const TxLog: React.FC<TxLogProps> = ({ db, setDb, toast }) => {
     csv += "\n";
 
     // Savings Logs
-    csv += "SAVINGS LOGS\nID,Member ID,Month,Amount,Method\n";
+    csv += "SAVINGS LOGS\nID,Member ID,Month,Amount\n";
     db.savingsLogs.forEach(s => {
-      csv += `${s.id},${s.memberId},${s.month},${s.amount},${s.notifyMethod}\n`;
+      csv += `${s.id},${s.memberId},${s.month},${s.amount}\n`;
     });
     csv += "\n";
 
